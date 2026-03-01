@@ -288,30 +288,19 @@ export default function Home() {
         setUserCoords([lat, lng]);
         setIsGPSLocked(true);
 
-        // Simple nearest city logic for filtering
-        const cityCoords: Record<string, [number, number]> = {
-          "תל אביב": [32.0853, 34.7818],
-          "חיפה": [32.7940, 34.9896],
-          "ירושלים": [31.7683, 35.2137],
-          "באר שבע": [31.2518, 34.7913],
-          "אשדוד": [31.8014, 34.6435],
-          "אשקלון": [31.6693, 34.5715],
-          "שדרות": [31.5229, 34.5956],
-          "אילת": [29.5577, 34.9519]
-        };
+        // Live Reverse Geocoding to get actual localized city instead of generic hardcoded regions
+        fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&accept-language=he`)
+          .then(res => res.json())
+          .then(data => {
+            const realCity = data.address?.city || data.address?.town || data.address?.village || data.address?.municipality || "";
+            if (realCity) {
+              setFilterCity(realCity.replace('מועצה מקומית ', '').trim());
+            } else {
+              setFilterCity(""); // Default back to all if unseen territory
+            }
+          })
+          .catch(() => setFilterCity(""));
 
-        let nearestCity = "תל אביב";
-        let minDistance = Infinity;
-
-        Object.entries(cityCoords).forEach(([city, coords]) => {
-          const dist = Math.sqrt(Math.pow(lat - coords[0], 2) + Math.pow(lng - coords[1], 2));
-          if (dist < minDistance) {
-            minDistance = dist;
-            nearestCity = city;
-          }
-        });
-
-        setFilterCity(nearestCity);
       }, () => {
         alert("לא אושר מיקום.");
       });
