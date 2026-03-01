@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Search, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon, Menu } from "lucide-react";
+import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon, Menu } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Dynamic imports to prevent SSR errors with heavy/DOM-dependent libraries
