@@ -654,10 +654,10 @@ export default function Home() {
       <main className="relative z-10 p-2 sm:p-6 w-full max-w-full 2xl:px-8 mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 outline-none flex-1">
 
         {/* RIGHT SIDEBAR (Focus & Stats) - 4 Cols */}
-        <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-2 lg:order-1">
+        <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-3 lg:order-1">
 
           {/* TARGET FOCUS PANEL */}
-          <div className="glass-card rounded-2xl p-6">
+          <div className="glass-card rounded-2xl p-6 order-1 lg:order-none">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3">
               <MapPin className="text-blue-400" size={20} />
               <h2 className="text-lg font-bold text-white">{isLTR ? "Multi-Zone Alert Monitoring" : "מעקב התראות רב-זירתי (Multi-Zone)"}</h2>
@@ -762,7 +762,7 @@ export default function Home() {
         <section className="lg:col-span-9 flex flex-col gap-4 sm:gap-6 order-1 lg:order-2">
 
           {/* AI ANALYST BANNER */}
-          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-lg">
+          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-lg order-1 lg:order-none">
             <div className="p-3 bg-indigo-500/20 rounded-xl shrink-0">
               <BrainCircuit className="text-indigo-400 animate-pulse" size={24} />
             </div>
@@ -773,7 +773,7 @@ export default function Home() {
           </div>
 
           {/* RADAR MAP INTERFACE */}
-          <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0">
+          <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0 order-2 lg:order-none">
             <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none">
               <div className="flex items-center gap-2">
                 <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={16} />
@@ -797,7 +797,7 @@ export default function Home() {
           </div>
 
           {/* LIVE COMBAT FEED (Historic Log) */}
-          <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px]">
+          <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px] order-4 lg:order-none">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3 h-10 shrink-0">
               <MapIcon className="text-orange-400" size={20} />
               <h2 className="text-lg font-bold text-white">יומן יירוטים ומטרות (Live Feed)</h2>
