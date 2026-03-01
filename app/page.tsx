@@ -48,6 +48,7 @@ export default function Home() {
   const [showReport, setShowReport] = useState(false);
   const [strategicReport, setStrategicReport] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
+  const [qrUrl, setQrUrl] = useState<string>("");
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -64,6 +65,8 @@ export default function Home() {
       if (Notification.permission === 'granted') {
         setIsPushOn(true);
       }
+      // Tactical: Capture current URL for Mobile Command Sync
+      setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=150x150&margin=10&data=${encodeURIComponent(window.location.href)}`);
     }
   }, []);
 
@@ -689,20 +692,32 @@ export default function Home() {
         {/* RIGHT SIDEBAR (Focus & Stats) - 4 Cols */}
         <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-3 lg:order-1">
 
-          {/* MOBILE SYNC QR (NEW FEATURE) */}
-          <div className="glass-card rounded-2xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center">
-            <div className="w-10 h-10 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 mb-2">
-              <Globe size={24} />
+          {/* MOBILE SYNC QR (IMPROVED STABILITY) */}
+          <div className="glass-card rounded-2xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center group">
+            <div className="w-10 h-10 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 mb-2 group-hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all">
+              <Globe size={24} className="animate-pulse" />
             </div>
-            <h3 className="text-white font-bold text-sm tracking-wide">חמ&quot;ל נייד (Sync QR)</h3>
-            <p className="text-[10px] text-slate-400 leading-tight">סרוק לסנכרון הגדרות המכ&quot;ם לטלפון שלך לצפייה בזמן אמת בממ&quot;ד.</p>
-            <div className="p-3 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:scale-105 transition-transform">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
-                alt="Sync QR"
-                className="w-24 h-24 grayscale-[0.5] hover:grayscale-0 transition-all opacity-80"
-              />
+            <h3 className="text-white font-black text-sm tracking-wide">חמ&quot;ל נייד (Sync QR)</h3>
+            <p className="text-[10px] text-slate-500 leading-tight font-medium">סרוק לסנכרון הגדרות המכ&quot;ם לטלפון שלך לצפייה בזמן אמת בממ&quot;ד.</p>
+            <div className="p-3 bg-white rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/10 group-hover:scale-105 transition-all duration-500 relative overflow-hidden">
+              {qrUrl ? (
+                <img
+                  src={qrUrl}
+                  alt="Sync QR"
+                  className="w-24 h-24 grayscale-[0.2] hover:grayscale-0 transition-all opacity-90"
+                  onError={(e) => {
+                    // Fallback to local data if external API fails
+                    (e.target as HTMLImageElement).src = `https://chart.googleapis.com/chart?cht=qr&chs=150x150&chl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`;
+                  }}
+                />
+              ) : (
+                <div className="w-24 h-24 flex items-center justify-center bg-slate-100 rounded-lg animate-pulse">
+                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                </div>
+              )}
+              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent pointer-events-none"></div>
             </div>
+            <div className="text-[8px] text-slate-500 uppercase tracking-widest font-mono mt-1 opacity-50">Secure Command Relay Protocol</div>
           </div>
 
           {/* LIVE COMBAT FEED (Historic Log) */}
