@@ -122,8 +122,8 @@ export default function Home() {
         if (data.saved_alerts) {
           const newLength = data.saved_alerts.length;
           // Check if there's genuinely a new alert hitting the stack
-          if (previousHistoryLength.current > 0 && newLength > previousHistoryLength.current) {
-            const newlyAddedArr = incomingActive.length > 0 ? incomingActive : (Array.isArray(data.saved_alerts[0].cities) ? data.saved_alerts[0].cities : [data.saved_alerts[0].cities]); // best effort
+          if (newLength > previousHistoryLength.current) {
+            const newlyAddedArr = incomingActive.length > 0 ? incomingActive : (Array.isArray(data.saved_alerts[0]?.cities) ? data.saved_alerts[0].cities : [data.saved_alerts[0]?.cities || ""]);
 
             // Threat check: If user typed specific zones, split by comma to allow Multi-Zone Tracking
             const monitoredZones = filterCity.split(',').map(z => z.trim()).filter(z => z !== "");
@@ -143,12 +143,12 @@ export default function Home() {
                   : `צבע אדום ב: ${Array.isArray(newlyAddedArr) ? newlyAddedArr.join(', ') : newlyAddedArr}`;
                 const speech = new SpeechSynthesisUtterance(speechStr);
                 speech.lang = isLTR ? 'en-US' : 'he-IL';
-                speech.rate = 1.1; // Make it sound urgent!
+                speech.rate = 1.1;
                 speech.pitch = 0.9;
                 window.speechSynthesis.speak(speech);
               }
 
-              // Trigger Push Notification (only if backgrounded/unfocused or specifically opted in)
+              // Trigger Push Notification
               if (isPushOn && Notification.permission === 'granted') {
                 navigator.serviceWorker.ready.then((reg) => {
                   reg.showNotification('צבע אדום!', {
@@ -165,15 +165,15 @@ export default function Home() {
         }
 
         // Live Clock Tick
-        const now = new Date();
-        setLastUpdateTime(`${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`);
+        const nowTime = new Date();
+        setLastUpdateTime(`${nowTime.getHours().toString().padStart(2, '0')}:${nowTime.getMinutes().toString().padStart(2, '0')}:${nowTime.getSeconds().toString().padStart(2, '0')}`);
 
       } catch (e) {
         console.error("Signal Drop:", e);
       }
     };
     fetchAlerts();
-    const intervalId = setInterval(fetchAlerts, 2000); // Poll every 2 seconds for intense response times
+    const intervalId = setInterval(fetchAlerts, 2000);
     return () => clearInterval(intervalId);
   }, [filterCity, isMuted, isTTSOn, isPushOn, isLTR, isTimeMachineActive]);
 
@@ -536,11 +536,11 @@ export default function Home() {
             className="fixed top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-[100] w-[95%] sm:w-[90%] max-w-4xl"
             data-testid="active-alert-banner"
           >
-            <div className="relative bg-gradient-to-br from-red-600/95 via-red-800/95 to-slate-900/95 backdrop-blur-2xl border border-red-500/50 rounded-2xl sm:rounded-3xl shadow-[0_15px_60px_-10px_rgba(239,68,68,0.5)] overflow-hidden">
+            <div className={`relative bg-gradient-to-br backdrop-blur-2xl border rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden ${isTargetedCurrently ? 'from-red-600/95 via-red-800/95 to-slate-900/95 border-red-500/50 shadow-[0_15px_60px_-10px_rgba(239,68,68,0.5)]' : 'from-slate-800/95 via-slate-900/95 to-slate-950/95 border-slate-700/50 shadow-black'}`}>
 
               {/* Visual pulse background */}
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-red-500/20 via-transparent to-transparent animate-pulse" />
-              <div className="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent via-red-300 to-transparent opacity-50" />
+              <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] via-transparent to-transparent animate-pulse ${isTargetedCurrently ? 'from-red-500/20' : 'from-slate-500/10'}`} />
+              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent to-transparent opacity-50 ${isTargetedCurrently ? 'via-red-300' : 'via-slate-500'}`} />
 
               <button
                 onClick={() => setIsBannerDismissed(true)}
@@ -569,16 +569,23 @@ export default function Home() {
                 </div>
               </div>
 
-              <div className="p-6 sm:p-10 flex flex-col items-center justify-center relative">
+              <div className={`p-6 sm:p-10 flex flex-col items-center justify-center relative ${!isTargetedCurrently ? 'opacity-80' : ''}`}>
                 <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                  <AlertTriangle size={36} className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block" />
-                  <h2 className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)]">צבע אדום</h2>
-                  <AlertTriangle size={36} className="text-white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block" />
+                  <AlertTriangle size={36} className={`white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block ${!isTargetedCurrently ? 'text-orange-400' : 'text-white'}`} />
+                  <h2 className={`text-4xl sm:text-5xl md:text-6xl font-black tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] ${!isTargetedCurrently ? 'text-orange-100' : 'text-white'}`}>
+                    {isTargetedCurrently ? (isLTR ? "CODE RED" : "צבע אדום") : (isLTR ? "REGIONAL ALERT" : "התרעה מרחבית")}
+                  </h2>
+                  <AlertTriangle size={36} className={`white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block ${!isTargetedCurrently ? 'text-orange-400' : 'text-white'}`} />
                 </div>
-                <div className="w-16 h-1 bg-red-400/50 rounded-full mb-4 sm:mb-6" />
+                {!isTargetedCurrently && (
+                  <div className="bg-orange-500/20 text-orange-200 text-[10px] font-bold px-3 py-1 rounded-full border border-orange-500/30 mb-4 animate-pulse uppercase tracking-[0.1em]">
+                    {isLTR ? "Target outside your monitored zones" : "מטרה מחוץ לאזורי המעקב שלך"}
+                  </div>
+                )}
+                <div className={`w-16 h-1 rounded-full mb-4 sm:mb-6 ${isTargetedCurrently ? 'bg-red-400/50' : 'bg-orange-400/30'}`} />
 
                 <div className="flex flex-col items-center">
-                  <span className="text-white/80 font-medium text-xs sm:text-sm tracking-wide mb-1 sm:mb-2 text-center break-words max-w-[90vw]">
+                  <span className={`font-black text-sm sm:text-lg tracking-wide mb-1 sm:mb-2 text-center break-words max-w-[90vw] ${isTargetedCurrently ? 'text-white' : 'text-orange-100'}`}>
                     {Array.isArray(activeAlerts) ? activeAlerts.join(' , ') : activeAlerts}
                   </span>
 
