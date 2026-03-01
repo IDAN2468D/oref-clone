@@ -43,6 +43,7 @@ export default function Home() {
   const [isDarkOpsMode, setIsDarkOpsMode] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const [osintUpdates, setOsintUpdates] = useState<string[]>([]);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -60,6 +61,16 @@ export default function Home() {
         setIsPushOn(true);
       }
     }
+  }, []);
+
+  // Fetch OSINT feeds once on mount
+  useEffect(() => {
+    fetch('/api/osint')
+      .then(res => res.json())
+      .then(data => {
+        if (data.updates) setOsintUpdates(data.updates);
+      })
+      .catch(console.error);
   }, []);
 
   // Poll server for live API states
@@ -114,8 +125,9 @@ export default function Home() {
           if (previousHistoryLength.current > 0 && newLength > previousHistoryLength.current) {
             const newlyAddedArr = incomingActive.length > 0 ? incomingActive : (Array.isArray(data.saved_alerts[0].cities) ? data.saved_alerts[0].cities : [data.saved_alerts[0].cities]); // best effort
 
-            // Threat check: If user typed a specific city focus, only trigger if it matches
-            const isThreatToUser = !filterCity || filterCity.trim() === "" || newlyAddedArr.some((c: string) => c.includes(filterCity.trim()));
+            // Threat check: If user typed specific zones, split by comma to allow Multi-Zone Tracking
+            const monitoredZones = filterCity.split(',').map(z => z.trim()).filter(z => z !== "");
+            const isThreatToUser = monitoredZones.length === 0 || newlyAddedArr.some((c: string) => monitoredZones.some(zone => c.includes(zone)));
 
             // Only trigger sirens if valid targets exist (not system messages)
             if (isThreatToUser && newlyAddedArr.some((c: string) => !c.includes("ניתן לצאת") && !c.includes("אך יש להישאר"))) {
@@ -354,8 +366,9 @@ export default function Home() {
   };
 
 
+  const monitoredZones = filterCity.split(',').map(z => z.trim()).filter(z => z !== "");
   const isTargetedCurrently = activeAlerts.length > 0 &&
-    (filterCity.trim() === "" || activeAlerts.some(c => c.includes(filterCity.trim())));
+    (monitoredZones.length === 0 || activeAlerts.some(c => monitoredZones.some(zone => c.includes(zone))));
 
   const dynamicSrc = history.length > 0 && history[0].title?.includes("כלי טיס")
     ? "https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg"
@@ -654,21 +667,21 @@ export default function Home() {
           <div className="glass-card rounded-2xl p-6">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3">
               <MapPin className="text-blue-400" size={20} />
-              <h2 className="text-lg font-bold text-white">{isLTR ? "Personal Alert Zone" : "הגדרת מרחב התרעה (אישי)"}</h2>
+              <h2 className="text-lg font-bold text-white">{isLTR ? "Multi-Zone Alert Monitoring" : "מעקב התראות רב-זירתי (Multi-Zone)"}</h2>
             </div>
             <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              {isLTR ? "Enter a city name to filter sirens specifically to your area, preventing nationwide panic. Leave blank for general alerts." : "רשום שם יישוב. הסירנות יופעלו רק אצלך באם קיימת סכנה במרחב הספציפי שלך, כדי למנוע היסטריה ארצית. עזוב ריק להתרעות כלל-ארציות."}
+              {isLTR ? "Enter multiple cities separated by commas (e.g. Haifa, Tel Aviv) to monitor specific zones simultaneously and prevent nationwide panic hysteresis." : "הזן מספר יישובים מופרדים בפסיקים (למשל: תל אביב, אשדוד, חיפה) כדי לעקוב אחר כמה אזורים במקביל. הסירנה תופעל רק שם."}
             </p>
             <div className="relative flex items-center">
               <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Search size={16} className="text-slate-500" />
+                <Layers size={16} className="text-slate-500" />
               </div>
               <input
                 type="text"
                 value={filterCity}
                 onChange={(e) => setFilterCity(e.target.value)}
-                className="w-full bg-slate-800/50 border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pr-10 pl-12 p-3"
-                placeholder="לחיפוש: תל אביב, חיפה..."
+                className="w-full bg-slate-800/50 border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pr-10 pl-12 p-3 font-mono"
+                placeholder="לדוגמה: תל אביב, חיפה, רמת גן"
               />
               <button
                 onClick={toggleGPS}
@@ -951,6 +964,30 @@ export default function Home() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* --- OSINT TICKER --- */}
+      {osintUpdates.length > 0 && (
+        <div className="fixed bottom-0 w-full bg-slate-900 border-t border-slate-700/50 flex items-center h-8 sm:h-10 z-[60]">
+          <div className="bg-red-600 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-4 h-full flex items-center uppercase whitespace-nowrap z-10 shrink-0 shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
+            {isLTR ? "OSINT UPDATE" : "מבזקי חמ״ל"}
+          </div>
+          <div className="flex-1 overflow-hidden relative h-full flex items-center">
+            <div className="animate-marquee whitespace-nowrap text-[10px] sm:text-xs text-slate-300 font-mono flex items-center">
+              {osintUpdates.map((update, idx) => (
+                <React.Fragment key={`o1-${idx}`}>
+                  <span className="mx-4 text-slate-600">❖</span> <span>{update}</span>
+                </React.Fragment>
+              ))}
+              {/* Duplicate for seamless looping */}
+              {osintUpdates.map((update, idx) => (
+                <React.Fragment key={`o2-${idx}`}>
+                  <span className="mx-4 text-slate-600">❖</span> <span>{update}</span>
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );

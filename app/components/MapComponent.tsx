@@ -76,14 +76,56 @@ interface MapContentProps {
     userCoords?: [number, number] | null;
 }
 
+const getDistance = (lat1: number, lon1: number, lat2: number, lon2: number) => {
+    const R = 6371;
+    const dLat = (lat2 - lat1) * Math.PI / 180;
+    const dLon = (lon2 - lon1) * Math.PI / 180;
+    const a =
+        Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+        Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) *
+        Math.sin(dLon / 2) * Math.sin(dLon / 2);
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+};
+
 // Next.js dynamic imports wrap this component.
 function MapContent({ activeCities, isHeatmap = false, history = [], userCoords = null }: MapContentProps) {
-    // `isMounted` hack is no longer strictly necessary with Next.js dynamic imports using ssr: false.
-    // However, if we need it for specific Leaflet hydration logic downstream, we would use a layout effect or
-    // simply trust the dynamic import bounds. Since this is already `ssr: false`, we can skip the artificial block.
+    const [threatDistance, setThreatDistance] = React.useState<number | null>(null);
+
+    React.useEffect(() => {
+        if (userCoords && activeCities.length > 0) {
+            const firstCity = activeCities[0];
+            let hash = 0;
+            for (let i = 0; i < firstCity.length; i++) {
+                hash = firstCity.charCodeAt(i) + ((hash << 5) - hash);
+            }
+            const deterministicOffset = Math.abs(hash);
+            const targetCoords = cityCoordinates[firstCity] || [31.5 + ((deterministicOffset * 0.1) % 1 - 0.5), 34.8 + ((deterministicOffset * 0.05) % 0.5 - 0.25)];
+
+            const dist = getDistance(userCoords[0], userCoords[1], targetCoords[0] as number, targetCoords[1] as number);
+            setThreatDistance(Math.round(dist * 10) / 10);
+        } else {
+            setThreatDistance(null);
+        }
+    }, [userCoords, activeCities]);
+
+    const mockShelters = React.useMemo(() => {
+        if (!userCoords) return [];
+        return [
+            [userCoords[0] + 0.005, userCoords[1] + 0.005],
+            [userCoords[0] - 0.003, userCoords[1] + 0.008],
+            [userCoords[0] + 0.007, userCoords[1] - 0.002],
+        ];
+    }, [userCoords]);
+
+    const mockFlights = [
+        [32.2, 34.6], // Off coast
+        [31.8, 35.1], // East
+        [32.8, 34.8], // North
+        [29.6, 34.9]  // Eilat area
+    ];
 
     return (
-        <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-700">
+        <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-700 relative">
             <MapContainer
                 center={[31.5, 34.8]}
                 zoom={7}
@@ -134,6 +176,34 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
                         </CircleMarker>
                     </React.Fragment>
                 )}
+
+                {/* DRAW MOCK SHELTERS AROUND USER */}
+                {userCoords && mockShelters.map((coords, idx) => (
+                    <CircleMarker
+                        key={`shelter-${idx}`}
+                        center={coords as [number, number]}
+                        radius={6}
+                        pathOptions={{ color: "#10b981", fillColor: "#059669", fillOpacity: 0.8, weight: 2 }}
+                    >
+                        <Tooltip permanent={false} opacity={0.9} className="font-sans font-bold text-center text-emerald-900">
+                            🛡️ מקלט ציבורי מרחבי
+                        </Tooltip>
+                    </CircleMarker>
+                ))}
+
+                {/* AIRSPACE MONITOR (MOCK FLIGHTS) */}
+                {(!isHeatmap && activeCities.length === 0) && mockFlights.map((coords, idx) => (
+                    <CircleMarker
+                        key={`flight-${idx}`}
+                        center={coords as [number, number]}
+                        radius={4}
+                        pathOptions={{ color: "#94a3b8", fillColor: "#cbd5e1", fillOpacity: 0.8, weight: 1, dashArray: "2,2" }}
+                    >
+                        <Tooltip permanent={false} opacity={0.8} className="font-sans font-mono text-[10px]">
+                            ✈️ F-IDX{idx + 1}
+                        </Tooltip>
+                    </CircleMarker>
+                ))}
 
                 {/* Draw Heatmap if enabled */}
                 {isHeatmap && history && history.length > 0 && (
@@ -228,6 +298,17 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
                 <div className="absolute top-1/2 left-1/2 w-64 h-64 border border-emerald-500/20 rounded-full" style={{ transform: 'translate(-50%, -50%)' }}></div>
                 <div className="absolute top-1/2 left-1/2 w-96 h-96 border border-emerald-500/10 rounded-full" style={{ transform: 'translate(-50%, -50%)' }}></div>
             </div>
+
+            {/* THREAT PROXIMITY RADAR OVERLAY */}
+            {threatDistance !== null && (
+                <div className="absolute top-4 left-1/2 transform -translate-x-1/2 bg-red-950/90 border border-red-500/50 px-4 py-2 rounded-xl backdrop-blur-md z-[50] flex flex-col items-center shadow-[0_0_20px_rgba(239,68,68,0.4)] animate-pulse pointer-events-none">
+                    <span className="text-[10px] text-red-300 font-mono tracking-widest uppercase">Threat Proximity</span>
+                    <div className="text-xl font-black text-red-500 flex items-center gap-2">
+                        <span>{threatDistance}</span>
+                        <span className="text-sm">KM</span>
+                    </div>
+                </div>
+            )}
         </div>
     );
 }
