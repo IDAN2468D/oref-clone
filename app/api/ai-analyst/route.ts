@@ -3,7 +3,8 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 
 export async function POST(req: Request) {
     try {
-        const { activeAlerts, history, isLTR } = await req.json();
+        const body = await req.json();
+        const { activeAlerts, history, isLTR, isDeepAudit } = body;
 
         // Make sure we have the API key configured in .env.local
         const apiKey = process.env.GEMINI_API_KEY;
@@ -15,7 +16,7 @@ export async function POST(req: Request) {
         }
 
         const genAI = new GoogleGenerativeAI(apiKey);
-        const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash-exp" });
 
         const activeCount = activeAlerts.length;
         let dataContext = "";
@@ -31,19 +32,37 @@ export async function POST(req: Request) {
 
         const lang = isLTR ? "English" : "Hebrew";
 
-        const prompt = `
+        let prompt = "";
+
+        if (isDeepAudit) {
+            prompt = `
+You are the Chief Internal Intelligence Analyst for the Israeli Home Front Command (HFC).
+Produce a COMPREHENSIVE STRATEGIC REPORT (SITREP) based on the latest tactical data:
+- ACTIVE THREATS: ${activeCount} (${activeAlerts.join(", ")})
+- HISTORICAL CONTEXT: ${dataContext}
+
+Requirements:
+1. Subject line: TACTICAL COMMAND AUDIT - [Current UTC Timestamp]
+2. Content: Analyze the target pattern (North, Center, South), intensity (High/Low), and strategic significance.
+3. Tone: Heavy, professional, cold, and authoritative. 
+4. Language: ${lang}.
+5. Format: Multiple short paragraphs. Be precise.
+6. NO MD CODE BLOCKS, NO QUOTES. Speak as the system directly.
+`;
+        } else {
+            prompt = `
 You are a tactical military AI analyst systems for the Israeli Home Front Command (Oref).
-Write ONE short, highly professional, direct, and slightly dramatized sentence summarizing the current situation based on this data:
-- Currently active sirens (cities instantly under attack right now): ${activeCount} active zones. (${activeAlerts.join(", ")})
-- Recent attacks history (last 5 min): ${dataContext}
+Write ONE short, highly professional, direct, and slightly dramatized sentence summarizing the current situation:
+- Currently active sirens: ${activeCount} (${activeAlerts.join(", ")})
+- Recent attacks: ${dataContext}
 
 Rules:
-1. Keep it to exactly 1 short sentence (max 15 words).
-2. Sound like a robotic, highly intelligent military tactical system dashboard. 
-3. MUST be in ${lang}.
-4. If there are NO active sirens currently, report that the sector is scanning and analyzing previous targets.
-5. Do NOT use markdown or quotes. Speak as the system directly.
+1. EXACTLY 1 sentence (max 15 words).
+2. Robotic, command-center dashboard tone.
+3. Language: ${lang}.
+4. NO markdown or quotes.
 `;
+        }
 
         const result = await model.generateContent(prompt);
         const text = result.response.text();
