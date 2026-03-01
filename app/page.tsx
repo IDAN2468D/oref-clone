@@ -44,6 +44,7 @@ export default function Home() {
   const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [osintUpdates, setOsintUpdates] = useState<string[]>([]);
+  const [syncStatus, setSyncStatus] = useState<'success' | 'fallback' | 'loading'>('loading');
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -80,30 +81,29 @@ export default function Home() {
     const fetchAlerts = async () => {
       try {
         const res = await fetch('/api/alerts');
-        if (!res.ok) return;
+        if (!res.ok) {
+          setSyncStatus('fallback');
+          return;
+        }
 
         const data = await res.json();
+        setSyncStatus(data.status || 'success');
         const rawActive = (data.active && data.active.data) || [];
 
         // Oref API sometimes sends system messages (like "All Clear" or instructions) disguised as target names.
-        // We catch them so they don't trigger the red siren banner, and instead parse them for context.
         const incomingActive = rawActive.filter((c: string) => !c.includes("ניתן לצאת") && !c.includes("הנחיות") && !c.includes("אך יש להישאר"));
         const customMessageStr = rawActive.find((c: string) => c.includes("ניתן לצאת") || c.includes("הנחיות") || c.includes("אך יש להישאר"));
         const hasAllClearMessage = !!customMessageStr;
 
         if (customMessageStr) setSystemMessage(customMessageStr);
 
-        // Update active displays. Reset dismiss if alert data strictly changes.
         setActiveAlerts(prev => {
           if (JSON.stringify(prev) !== JSON.stringify(incomingActive)) {
-            // If we're getting a new active alert state (different target)
             setIsBannerDismissed(false);
 
-            // Log that we are under attack to trigger 'All Clear' later
             if (incomingActive.length > 0) {
               setShowAllClear(false);
             }
-            // If active alerts dropped to 0, but we were previously under attack, show ALL CLEAR
             else if ((incomingActive.length === 0 && prev.length > 0) || hasAllClearMessage) {
               setShowAllClear(true);
             }
@@ -121,26 +121,23 @@ export default function Home() {
         // Track History
         if (data.saved_alerts) {
           const newLength = data.saved_alerts.length;
-          // Check if there's genuinely a new alert hitting the stack
-          if (newLength > previousHistoryLength.current) {
-            const newlyAddedArr = incomingActive.length > 0 ? incomingActive : (Array.isArray(data.saved_alerts[0]?.cities) ? data.saved_alerts[0].cities : [data.saved_alerts[0]?.cities || ""]);
+          // Only trigger sirens for NEW alerts after the first successful sync
+          if (previousHistoryLength.current > 0 && newLength > previousHistoryLength.current) {
+            const newestAlert = data.saved_alerts[0];
+            const newlyAddedArr = Array.isArray(newestAlert.cities) ? newestAlert.cities : [newestAlert.cities];
 
-            // Threat check: If user typed specific zones, split by comma to allow Multi-Zone Tracking
             const monitoredZones = filterCity.split(',').map(z => z.trim()).filter(z => z !== "");
             const isThreatToUser = monitoredZones.length === 0 || newlyAddedArr.some((c: string) => monitoredZones.some(zone => c.includes(zone)));
 
-            // Only trigger sirens if valid targets exist (not system messages)
             if (isThreatToUser && newlyAddedArr.some((c: string) => !c.includes("ניתן לצאת") && !c.includes("אך יש להישאר"))) {
-              // Trigger Visual/Graphic Siren
               if (!isMuted && audioRef.current) {
                 audioRef.current.play().catch(e => console.log("Init audio error:", e));
               }
 
-              // Trigger Text-To-Speech
               if (isTTSOn && window.speechSynthesis) {
                 const speechStr = isLTR
-                  ? `Warning! Incoming attack detected at ${Array.isArray(newlyAddedArr) ? newlyAddedArr.join(', ') : newlyAddedArr}. Please take cover.`
-                  : `צבע אדום ב: ${Array.isArray(newlyAddedArr) ? newlyAddedArr.join(', ') : newlyAddedArr}`;
+                  ? `Warning! Incoming attack detected at ${newlyAddedArr.join(', ')}. Please take cover.`
+                  : `צבע אדום ב: ${newlyAddedArr.join(', ')}`;
                 const speech = new SpeechSynthesisUtterance(speechStr);
                 speech.lang = isLTR ? 'en-US' : 'he-IL';
                 speech.rate = 1.1;
@@ -148,11 +145,10 @@ export default function Home() {
                 window.speechSynthesis.speak(speech);
               }
 
-              // Trigger Push Notification
               if (isPushOn && Notification.permission === 'granted') {
                 navigator.serviceWorker.ready.then((reg) => {
                   reg.showNotification('צבע אדום!', {
-                    body: `התרעה מאומתת: ${Array.isArray(newlyAddedArr) ? newlyAddedArr.join(', ') : newlyAddedArr}`,
+                    body: `התרעה מאומתת: ${newlyAddedArr.join(', ')}`,
                     icon: '/icon-192x192.png',
                     tag: 'oref-alert'
                   });
@@ -164,12 +160,12 @@ export default function Home() {
           setHistory(data.saved_alerts);
         }
 
-        // Live Clock Tick
         const nowTime = new Date();
         setLastUpdateTime(`${nowTime.getHours().toString().padStart(2, '0')}:${nowTime.getMinutes().toString().padStart(2, '0')}:${nowTime.getSeconds().toString().padStart(2, '0')}`);
 
       } catch (e) {
         console.error("Signal Drop:", e);
+        setSyncStatus('fallback');
       }
     };
     fetchAlerts();
@@ -737,12 +733,28 @@ export default function Home() {
 
           {/* RADAR MAP INTERFACE */}
           <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0 order-2 lg:order-none">
-            <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none">
-              <div className="flex items-center gap-2">
-                <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={16} />
-                <span className="text-sm font-bold tracking-wider text-slate-200">{isLTR ? "Live Radar" : "מכ\"ם טיווח חי"}</span>
+            <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none min-w-[140px]">
+              <div className="flex items-center justify-between gap-4 mb-1">
+                <div className="flex items-center gap-2">
+                  <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={14} />
+                  <span className="text-xs font-bold tracking-wider text-slate-200">{isLTR ? "Live Radar" : "מכ\"ם טיווח חי"}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <span className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : syncStatus === 'fallback' ? 'bg-orange-500' : 'bg-blue-500 animate-pulse'}`}></span>
+                  <span className="text-[9px] font-bold text-slate-400 opacity-80 uppercase tracking-tighter">
+                    {syncStatus === 'success' ? (isLTR ? "Sync" : "מסונכרן") : syncStatus === 'fallback' ? (isLTR ? "OSINT" : "גיבוי") : "..."}
+                  </span>
+                </div>
               </div>
-              <div className="text-xs text-slate-400 font-mono mt-0.5">{isLTR ? "Sync :" : "סנכרון :"} {lastUpdateTime}</div>
+              <div className="text-[10px] text-slate-500 font-mono flex justify-between">
+                <span>{isLTR ? "Last update:" : "עדכון:"}</span>
+                <span>{lastUpdateTime}</span>
+              </div>
+              {isMuted && activeAlerts.length > 0 && (
+                <div className="mt-2 text-[9px] font-black text-red-500 animate-bounce text-center uppercase border-t border-red-500/20 pt-1">
+                  {isLTR ? "Siren Muted!" : "סירנה מושתקת!"}
+                </div>
+              )}
             </div>
 
             <button
