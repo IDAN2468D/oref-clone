@@ -656,8 +656,104 @@ export default function Home() {
         {/* RIGHT SIDEBAR (Focus & Stats) - 4 Cols */}
         <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-3 lg:order-1">
 
+          {/* LIVE COMBAT FEED (Historic Log) */}
+          <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px] order-1 lg:order-none">
+            <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3 h-10 shrink-0">
+              <MapIcon className="text-orange-400" size={20} />
+              <h2 className="text-lg font-bold text-white">יומן יירוטים ומטרות (Live Feed)</h2>
+            </div>
+
+            <div className="flex-1 overflow-y-auto px-1">
+              {history.length > 0 ? (
+                <ul className="space-y-4 pb-12">
+                  <AnimatePresence>
+                    {history.map((alert, index) => {
+                      const contentString = Array.isArray(alert.cities) ? alert.cities.join(' , ') : (alert.cities || "");
+                      const titleStr = alert.title || "";
+                      const fullString = contentString + titleStr;
+
+                      const isInstruction = fullString.includes("ניתן לצאת") || fullString.includes("הנחיות");
+
+                      return (
+                        <motion.li
+                          key={alert.id || index}
+                          initial={{ opacity: 0, x: 20 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          className={`bg-slate-800/40 rounded-xl p-4 border-r-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-800/80 transition shadow-md ${isInstruction ? 'border-emerald-500' : 'border-red-500'}`}
+                        >
+                          <div className="flex flex-col sm:flex-row w-[65%] sm:w-3/4">
+                            <div className="flex flex-col gap-1 w-full">
+                              <div className="flex items-center gap-2">
+                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded border shrink-0 ${isInstruction ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800' : 'bg-red-900/30 text-red-400 border-red-800'}`}>
+                                  {isInstruction ? 'הודעת מערכת' : 'התרעה'}
+                                </span>
+                                <span className={`font-bold text-sm sm:text-base pr-1 ${isInstruction ? 'text-emerald-300' : 'text-slate-200'}`}>
+                                  {titleStr || (isInstruction ? "הנחיית התגוננות" : "התרעה מאומתת")}
+                                </span>
+                              </div>
+                              <span className="text-slate-400 text-xs sm:text-sm leading-relaxed" style={{ wordBreak: 'break-word' }}>
+                                {contentString}
+                              </span>
+                            </div>
+                          </div>
+                          <div className="text-slate-500 text-[10px] sm:text-xs font-mono bg-[#0f172a] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-700/50 shadow-inner text-center shrink-0 w-max sm:self-auto self-start pr-1 pl-1">
+                            {new Date(alert.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}  <br className="hidden sm:block" /> <span className="opacity-50 text-[9px] sm:text-[10px] pl-1 pr-1">{new Date(alert.timestamp).toLocaleDateString('he-IL')}</span>
+                          </div>
+                        </motion.li>
+                      );
+                    })}
+                  </AnimatePresence>
+                </ul>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-3">
+                  <ShieldAlert size={48} className="opacity-20" />
+                  <p>המרחב האווירי נקי. מנטר כל 2 שניות...</p>
+                </div>
+              )}
+            </div>
+          </div>
+        </aside>
+
+        {/* CENTER & LEFT CONTENT (Map & Live Feed) - 9 Cols */}
+        <section className="lg:col-span-9 flex flex-col gap-4 sm:gap-6 order-1 lg:order-2">
+
+          {/* AI ANALYST BANNER */}
+          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-lg order-1 lg:order-none">
+            <div className="p-3 bg-indigo-500/20 rounded-xl shrink-0">
+              <BrainCircuit className="text-indigo-400 animate-pulse" size={24} />
+            </div>
+            <div>
+              <h3 className="text-indigo-300 text-xs font-bold mb-1 tracking-wider uppercase">{isLTR ? "Oref AI Analyst" : "פרשן טקטי AI"}</h3>
+              <p className="text-white text-sm sm:text-base font-medium">{aiInsight}</p>
+            </div>
+          </div>
+
+          {/* RADAR MAP INTERFACE */}
+          <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0 order-2 lg:order-none">
+            <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none">
+              <div className="flex items-center gap-2">
+                <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={16} />
+                <span className="text-sm font-bold tracking-wider text-slate-200">{isLTR ? "Live Radar" : "מכ\"ם טיווח חי"}</span>
+              </div>
+              <div className="text-xs text-slate-400 font-mono mt-0.5">{isLTR ? "Sync :" : "סנכרון :"} {lastUpdateTime}</div>
+            </div>
+
+            <button
+              onClick={() => setIsHeatmap(!isHeatmap)}
+              className={`absolute top-4 left-4 z-[999] px-3 py-2 rounded-lg border text-xs font-bold transition-all shadow-lg flex items-center gap-2
+               ${isHeatmap ? 'bg-orange-600/90 border-orange-400 text-white' : 'bg-slate-800/80 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>
+              <Layers size={14} />
+              {isHeatmap ? (isLTR ? "Heatmap Active" : "מפת חום פעילה") : (isLTR ? "Show Heatmap" : "הצג מפת חום")}
+            </button>
+
+            <LiveMap activeCities={activeAlerts} isHeatmap={isHeatmap} history={history} userCoords={userCoords} />
+
+            {/* Scanline overlay for aesthetic */}
+            <div className="absolute inset-0 z-[400] pointer-events-none opacity-[0.05] bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(255,255,255,0.2)_50%)] bg-[length:100%_4px]" />
+          </div>
+
           {/* TARGET FOCUS PANEL */}
-          <div className="glass-card rounded-2xl p-6 order-1 lg:order-none">
+          <div className="glass-card rounded-2xl p-6 order-4 lg:order-none">
             <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3">
               <MapPin className="text-blue-400" size={20} />
               <h2 className="text-lg font-bold text-white">{isLTR ? "Multi-Zone Alert Monitoring" : "מעקב התראות רב-זירתי (Multi-Zone)"}</h2>
@@ -754,102 +850,6 @@ export default function Home() {
               <div className="bg-[#0f172a]/60 rounded-xl p-3 border border-slate-800/80 shadow-inner">
                 <StatsChart history={history} />
               </div>
-            </div>
-          </div>
-        </aside>
-
-        {/* CENTER & LEFT CONTENT (Map & Live Feed) - 9 Cols */}
-        <section className="lg:col-span-9 flex flex-col gap-4 sm:gap-6 order-1 lg:order-2">
-
-          {/* AI ANALYST BANNER */}
-          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-lg order-1 lg:order-none">
-            <div className="p-3 bg-indigo-500/20 rounded-xl shrink-0">
-              <BrainCircuit className="text-indigo-400 animate-pulse" size={24} />
-            </div>
-            <div>
-              <h3 className="text-indigo-300 text-xs font-bold mb-1 tracking-wider uppercase">{isLTR ? "Oref AI Analyst" : "פרשן טקטי AI"}</h3>
-              <p className="text-white text-sm sm:text-base font-medium">{aiInsight}</p>
-            </div>
-          </div>
-
-          {/* RADAR MAP INTERFACE */}
-          <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0 order-2 lg:order-none">
-            <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none">
-              <div className="flex items-center gap-2">
-                <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={16} />
-                <span className="text-sm font-bold tracking-wider text-slate-200">{isLTR ? "Live Radar" : "מכ\"ם טיווח חי"}</span>
-              </div>
-              <div className="text-xs text-slate-400 font-mono mt-0.5">{isLTR ? "Sync :" : "סנכרון :"} {lastUpdateTime}</div>
-            </div>
-
-            <button
-              onClick={() => setIsHeatmap(!isHeatmap)}
-              className={`absolute top-4 left-4 z-[999] px-3 py-2 rounded-lg border text-xs font-bold transition-all shadow-lg flex items-center gap-2
-               ${isHeatmap ? 'bg-orange-600/90 border-orange-400 text-white' : 'bg-slate-800/80 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>
-              <Layers size={14} />
-              {isHeatmap ? (isLTR ? "Heatmap Active" : "מפת חום פעילה") : (isLTR ? "Show Heatmap" : "הצג מפת חום")}
-            </button>
-
-            <LiveMap activeCities={activeAlerts} isHeatmap={isHeatmap} history={history} userCoords={userCoords} />
-
-            {/* Scanline overlay for aesthetic */}
-            <div className="absolute inset-0 z-[400] pointer-events-none opacity-[0.05] bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(255,255,255,0.2)_50%)] bg-[length:100%_4px]" />
-          </div>
-
-          {/* LIVE COMBAT FEED (Historic Log) */}
-          <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px] order-4 lg:order-none">
-            <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3 h-10 shrink-0">
-              <MapIcon className="text-orange-400" size={20} />
-              <h2 className="text-lg font-bold text-white">יומן יירוטים ומטרות (Live Feed)</h2>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-1">
-              {history.length > 0 ? (
-                <ul className="space-y-4 pb-12">
-                  <AnimatePresence>
-                    {history.map((alert, index) => {
-                      const contentString = Array.isArray(alert.cities) ? alert.cities.join(' , ') : (alert.cities || "");
-                      const titleStr = alert.title || "";
-                      const fullString = contentString + titleStr;
-
-                      const isInstruction = fullString.includes("ניתן לצאת") || fullString.includes("הנחיות");
-
-                      return (
-                        <motion.li
-                          key={alert.id || index}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className={`bg-slate-800/40 rounded-xl p-4 border-r-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-800/80 transition shadow-md ${isInstruction ? 'border-emerald-500' : 'border-red-500'}`}
-                        >
-                          <div className="flex flex-col sm:flex-row w-[65%] sm:w-3/4">
-                            <div className="flex flex-col gap-1 w-full">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded border shrink-0 ${isInstruction ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800' : 'bg-red-900/30 text-red-400 border-red-800'}`}>
-                                  {isInstruction ? 'הודעת מערכת' : 'התרעה'}
-                                </span>
-                                <span className={`font-bold text-sm sm:text-base pr-1 ${isInstruction ? 'text-emerald-300' : 'text-slate-200'}`}>
-                                  {titleStr || (isInstruction ? "הנחיית התגוננות" : "התרעה מאומתת")}
-                                </span>
-                              </div>
-                              <span className="text-slate-400 text-xs sm:text-sm leading-relaxed" style={{ wordBreak: 'break-word' }}>
-                                {contentString}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-slate-500 text-[10px] sm:text-xs font-mono bg-[#0f172a] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-700/50 shadow-inner text-center shrink-0 w-max sm:self-auto self-start pr-1 pl-1">
-                            {new Date(alert.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}  <br className="hidden sm:block" /> <span className="opacity-50 text-[9px] sm:text-[10px] pl-1 pr-1">{new Date(alert.timestamp).toLocaleDateString('he-IL')}</span>
-                          </div>
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-3">
-                  <ShieldAlert size={48} className="opacity-20" />
-                  <p>המרחב האווירי נקי. מנטר כל 2 שניות...</p>
-                </div>
-              )}
             </div>
           </div>
 
