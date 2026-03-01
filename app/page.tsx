@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Search, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon } from "lucide-react";
+import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Search, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon, Menu } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Dynamic imports to prevent SSR errors with heavy/DOM-dependent libraries
@@ -42,6 +42,7 @@ export default function Home() {
   const [isTimeMachineActive, setIsTimeMachineActive] = useState(false);
   const [isDarkOpsMode, setIsDarkOpsMode] = useState(false);
   const [userCoords, setUserCoords] = useState<[number, number] | null>(null);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -395,77 +396,127 @@ export default function Home() {
       <div className="absolute inset-0 z-0 bg-[url('https://transparenttextures.com/patterns/cubes.png')] opacity-[0.03] animate-pulse pointer-events-none" />
 
       {/* --- PREMIUM TOP NAVBAR --- */}
-      <nav className="glass-panel sticky top-0 z-50 flex flex-col sm:flex-row items-center justify-between px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 backdrop-blur-3xl">
-        <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-start">
-          <div className="flex items-center justify-center p-1.5 sm:p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg shadow-red-500/20">
-            <ShieldAlert className="text-white drop-shadow-md shrink-0" size={24} />
+      <nav className="glass-panel sticky top-0 z-50 px-4 sm:px-6 py-3 sm:py-4 border-b border-slate-800 backdrop-blur-3xl">
+        <div className="flex items-center justify-between w-full relative z-10">
+          <div className="flex items-center gap-3">
+            <div className="flex items-center justify-center p-1.5 sm:p-2 bg-gradient-to-br from-orange-500 to-red-600 rounded-lg shadow-lg shadow-red-500/20">
+              <ShieldAlert className="text-white drop-shadow-md shrink-0" size={24} />
+            </div>
+            <div className={`text-right ${isLTR ? 'text-left' : ''}`}>
+              <h1 className="font-black text-lg sm:text-2xl tracking-tight text-white m-0 leading-tight">
+                {isLTR ? "National Command Center" : "מרכז שליטה ארצי"}
+              </h1>
+              <p className="text-slate-400 text-[10px] sm:text-xs font-mono m-0 hidden sm:block">
+                {isLTR ? "Home Front Command | Tactical Dashboard" : "פיקוד העורף | מערכת טקטית"}
+              </p>
+            </div>
           </div>
-          <div className={`text-center sm:text-right ${isLTR ? 'sm:text-left' : ''}`}>
-            <h1 className="font-black text-xl sm:text-2xl tracking-tight text-white m-0 leading-tight">
-              {isLTR ? "National Command Center" : "מרכז שליטה ארצי"}
-            </h1>
-            <p className="text-slate-400 text-[10px] sm:text-xs font-mono m-0">
-              {isLTR ? "Home Front Command | Tactical Dashboard" : "פיקוד העורף | מערכת טקטית"}
-            </p>
-          </div>
-        </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 sm:gap-3 w-full sm:w-auto mt-4 sm:mt-0 justify-between sm:justify-end">
-
-          {/* NEW: WHATSAPP SHARE REPORT */}
-          <button onClick={exportSituationReport} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-green-400 rounded-xl transition-colors shrink-0" title={isLTR ? "Export Situation to WhatsApp" : "שתף תמונת מצב לוואטסאפ"}>
-            <Share2 size={18} />
+          {/* MOBILE HAMBURGER TOGGLE */}
+          <button
+            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+            className="sm:hidden p-2 bg-slate-800 border border-slate-700 text-white rounded-lg hover:bg-slate-700 transition"
+          >
+            {isMobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
 
-          {/* NEW: DARK OPS TOGGLE */}
-          <button onClick={() => setIsDarkOpsMode(!isDarkOpsMode)} className={`flex items-center justify-center p-2 sm:p-3 border rounded-xl transition-colors shrink-0 ${isDarkOpsMode ? 'bg-black border-slate-700 text-blue-500 shadow-[0_0_15px_rgba(0,0,255,0.2)]' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}`} title={isLTR ? "Dark Ops Mode" : "מצב חדר מלחמה / Blackout"}>
-            <Moon size={18} className={isDarkOpsMode ? 'fill-blue-500' : ''} />
-          </button>
-
-          {/* NEW: LANGUAGE TOGGLE */}
-          <button onClick={() => {
-            setIsLTR(!isLTR);
-            document.documentElement.dir = !isLTR ? "ltr" : "rtl";
-          }} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Switch to Hebrew" : "שנה שפה לאנגלית"}>
-            <Globe size={18} />
-          </button>
-
-          {/* NEW: ANALYTICS MODAL TOGGLE */}
-          <button onClick={() => setShowAnalyticsModal(true)} className="hidden sm:flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Deep Analytics" : "ניתוח עומק"}>
-            <LineChart size={18} />
-          </button>
-
-          {/* NEW: TIME MACHINE */}
-          <button onClick={triggerTimeMachine} disabled={isTimeMachineActive} className={`group relative flex items-center justify-center gap-2 px-3 sm:px-4 py-2 sm:py-2 bg-gradient-to-r ${isTimeMachineActive ? "from-purple-900 to-indigo-900 animate-pulse border-purple-400" : "from-slate-800 to-slate-900 border-slate-700"} border text-slate-200 text-sm font-semibold rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto shadow-md hover:from-slate-700 hover:to-slate-800`}>
-            <History size={16} className={`${isTimeMachineActive ? 'text-purple-400 animate-spin' : 'text-purple-500'}`} />
-            <span className="hidden leading-tight lg:inline whitespace-nowrap font-bold text-xs">{isLTR ? "Time Machine" : "מכונת זמן"}</span>
-          </button>
-
-          {/* SIMULATION BUTTON */}
-          <button onClick={simulateAlert} className="group relative flex items-center justify-center gap-2 px-4 sm:px-5 py-3 sm:py-2 sm:mr-1 bg-gradient-to-r from-red-950/40 to-slate-900 border border-red-900/50 text-slate-200 text-sm font-semibold rounded-xl sm:rounded-full transition-all duration-300 w-full sm:w-auto shadow-md hover:from-slate-800 hover:border-red-500/50">
-            <AlertTriangle size={16} className="text-yellow-500 group-hover:scale-110 transition-transform" />
-            <span className="whitespace-nowrap font-bold">טסט סימולציה</span>
-          </button>
-
-          <div className="flex gap-2 w-full sm:w-auto">
-            {/* TTS TOGGLE */}
-            <button onClick={() => setIsTTSOn(!isTTSOn)} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-2 border text-[11px] sm:text-sm font-bold rounded-xl sm:rounded-full transition-colors ${isTTSOn ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-              <MonitorPlay size={16} /> <span className="sm:inline">{isTTSOn ? (isLTR ? 'Voice On' : 'קול (פעיל)') : (isLTR ? 'Voice Off' : 'קול מושתק')}</span>
+          {/* DESKTOP/TABLET ACTIONS (Hidden on Mobile) */}
+          <div className="hidden sm:flex items-center gap-2 sm:gap-3">
+            <button onClick={exportSituationReport} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-green-400 rounded-xl transition-colors shrink-0" title={isLTR ? "Export Situation to WhatsApp" : "שתף תמונת מצב לוואטסאפ"}>
+              <Share2 size={18} />
+            </button>
+            <button onClick={() => setIsDarkOpsMode(!isDarkOpsMode)} className={`flex items-center justify-center p-2 sm:p-3 border rounded-xl transition-colors shrink-0 ${isDarkOpsMode ? 'bg-black border-slate-700 text-blue-500 shadow-[0_0_15px_rgba(0,0,255,0.2)]' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}`} title={isLTR ? "Dark Ops Mode" : "מצב חדר מלחמה / Blackout"}>
+              <Moon size={18} className={isDarkOpsMode ? 'fill-blue-500' : ''} />
+            </button>
+            <button onClick={() => { setIsLTR(!isLTR); document.documentElement.dir = !isLTR ? "ltr" : "rtl"; }} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Switch to Hebrew" : "שנה שפה לאנגלית"}>
+              <Globe size={18} />
+            </button>
+            <button onClick={() => setShowAnalyticsModal(true)} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Deep Analytics" : "ניתוח עומק"}>
+              <LineChart size={18} />
             </button>
 
-            {/* SIREN TOGGLE */}
-            <button onClick={toggleMute} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-2 border text-[11px] sm:text-sm font-bold rounded-xl sm:rounded-full transition-colors ${!isMuted ? 'bg-red-900/40 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-              {!isMuted ? <Volume2 size={16} className="animate-pulse" /> : <VolumeX size={16} />}
-              <span className="sm:inline">{!isMuted ? (isLTR ? 'Siren Armed' : 'סירנה דרוכה') : (isLTR ? 'Siren Muted' : 'מושתקת')}</span>
+            <button onClick={triggerTimeMachine} disabled={isTimeMachineActive} className={`group relative flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r ${isTimeMachineActive ? "from-purple-900 to-indigo-900 animate-pulse border-purple-400" : "from-slate-800 to-slate-900 border-slate-700"} border text-slate-200 text-sm font-semibold rounded-full transition-all duration-300 shadow-md hover:from-slate-700 hover:to-slate-800`}>
+              <History size={16} className={`${isTimeMachineActive ? 'text-purple-400 animate-spin' : 'text-purple-500'}`} />
+              <span className="leading-tight whitespace-nowrap font-bold text-xs">{isLTR ? "Time Machine" : "מכונת זמן"}</span>
             </button>
 
-            {/* NEW: PUSH TOGGLE */}
-            <button onClick={togglePush} className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-2 sm:px-4 py-3 sm:py-2 border text-[11px] sm:text-sm font-bold rounded-xl sm:rounded-full transition-colors ${isPushOn ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
-              {isPushOn ? <Bell size={16} className="animate-pulse" /> : <BellOff size={16} />}
-              <span className="hidden sm:inline">{isPushOn ? (isLTR ? 'Push On' : 'התראות') : (isLTR ? 'Push Off' : 'התראות')}</span>
+            <button onClick={simulateAlert} className="group relative flex items-center justify-center gap-2 px-4 py-2 mr-1 bg-gradient-to-r from-red-950/40 to-slate-900 border border-red-900/50 text-slate-200 text-sm font-semibold rounded-full transition-all duration-300 shadow-md hover:from-slate-800 hover:border-red-500/50">
+              <AlertTriangle size={16} className="text-yellow-500 group-hover:scale-110 transition-transform" />
+              <span className="whitespace-nowrap font-bold">{isLTR ? "Simulate Test" : "טסט סימולציה"}</span>
             </button>
+
+            <div className="flex gap-2">
+              <button onClick={() => setIsTTSOn(!isTTSOn)} className={`flex items-center justify-center gap-1.5 px-3 py-2 border text-[11px] sm:text-sm font-bold rounded-full transition-colors ${isTTSOn ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                <MonitorPlay size={16} /> <span>{isTTSOn ? (isLTR ? 'Voice On' : 'קול (פעיל)') : (isLTR ? 'Voice Off' : 'קול מושתק')}</span>
+              </button>
+              <button onClick={toggleMute} className={`flex items-center justify-center gap-1.5 px-3 py-2 border text-[11px] sm:text-sm font-bold rounded-full transition-colors ${!isMuted ? 'bg-red-900/40 border-red-500 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.3)]' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                {!isMuted ? <Volume2 size={16} className="animate-pulse" /> : <VolumeX size={16} />}
+                <span>{!isMuted ? (isLTR ? 'Siren Armed' : 'סירנה דרוכה') : (isLTR ? 'Siren Muted' : 'מושתקת')}</span>
+              </button>
+              <button onClick={togglePush} className={`flex items-center justify-center gap-1.5 px-3 py-2 border text-[11px] sm:text-sm font-bold rounded-full transition-colors ${isPushOn ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                {isPushOn ? <Bell size={16} className="animate-pulse" /> : <BellOff size={16} />}
+                <span>{isPushOn ? (isLTR ? 'Push On' : 'התראות') : (isLTR ? 'Push Off' : 'התראות')}</span>
+              </button>
+            </div>
           </div>
         </div>
+
+        {/* MOBILE SLIDE-DOWN MENU */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="sm:hidden overflow-hidden mt-4 pt-4 border-t border-slate-800 flex flex-col gap-3"
+            >
+              <div className="flex gap-2 w-full">
+                <button onClick={simulateAlert} className="flex-1 group flex justify-center gap-2 px-3 py-3 bg-gradient-to-r from-red-950/40 to-slate-900 border border-red-900/50 text-slate-200 text-xs font-semibold rounded-xl transition-all w-full">
+                  <AlertTriangle size={16} className="text-yellow-500" />
+                  <span>{isLTR ? "Simulate" : "סימולציה"}</span>
+                </button>
+                <button onClick={triggerTimeMachine} disabled={isTimeMachineActive} className="flex-1 flex justify-center gap-2 px-3 py-3 bg-slate-800 border border-slate-700 text-slate-200 text-xs font-semibold rounded-xl w-full">
+                  <History size={16} className={`${isTimeMachineActive ? 'text-purple-400 animate-spin' : 'text-purple-500'}`} />
+                  <span>{isLTR ? "History" : "מכונת זמן"}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button onClick={exportSituationReport} className="flex items-center justify-center gap-2 px-2 py-3 bg-slate-800 border border-slate-700 text-green-400 rounded-xl text-xs font-bold">
+                  <Share2 size={16} /> {isLTR ? "Share" : "שיתוף"}
+                </button>
+                <button onClick={() => setShowAnalyticsModal(true)} className="flex items-center justify-center gap-2 px-2 py-3 bg-slate-800 border border-slate-700 text-slate-300 rounded-xl text-xs font-bold">
+                  <LineChart size={16} /> {isLTR ? "Analytics" : "ניתוח"}
+                </button>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                <button onClick={() => setIsDarkOpsMode(!isDarkOpsMode)} className={`flex flex-col items-center justify-center p-3 border rounded-xl ${isDarkOpsMode ? 'bg-black border-slate-700 text-blue-500' : 'bg-slate-800 border-slate-700 text-slate-300'}`}>
+                  <Moon size={18} className="mb-1" />
+                  <span className="text-[10px]">{isLTR ? "Dark Ops" : "מצב לילה"}</span>
+                </button>
+                <button onClick={() => { setIsLTR(!isLTR); document.documentElement.dir = !isLTR ? "ltr" : "rtl"; }} className="flex flex-col items-center justify-center p-3 bg-slate-800 border border-slate-700 text-slate-300 rounded-xl">
+                  <Globe size={18} className="mb-1" />
+                  <span className="text-[10px]">{isLTR ? "EN" : "עברית"}</span>
+                </button>
+                <button onClick={togglePush} className={`flex flex-col items-center justify-center p-3 border rounded-xl ${isPushOn ? 'bg-emerald-900/40 border-emerald-500 text-emerald-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                  {isPushOn ? <Bell size={18} className="mb-1" /> : <BellOff size={18} className="mb-1" />}
+                  <span className="text-[10px]">{isLTR ? "Push" : "פוש"}</span>
+                </button>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 mt-1">
+                <button onClick={() => setIsTTSOn(!isTTSOn)} className={`flex items-center justify-center gap-2 px-2 py-3 border text-xs font-bold rounded-xl ${isTTSOn ? 'bg-indigo-900/40 border-indigo-500 text-indigo-300' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                  <MonitorPlay size={16} /> <span>{isTTSOn ? (isLTR ? 'Voice On' : 'קול פעיל') : (isLTR ? 'Voice Off' : 'קול כבוי')}</span>
+                </button>
+                <button onClick={toggleMute} className={`flex items-center justify-center gap-2 px-2 py-3 border text-xs font-bold rounded-xl ${!isMuted ? 'bg-red-900/40 border-red-500 text-red-400' : 'bg-slate-800 border-slate-700 text-slate-400'}`}>
+                  {!isMuted ? <Volume2 size={16} className="animate-pulse" /> : <VolumeX size={16} />}
+                  <span>{!isMuted ? (isLTR ? 'Siren On' : 'סירנה דרוכה') : (isLTR ? 'Siren Muted' : 'מושתקת')}</span>
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       {/* --- ACTIVE ALERT BANNER (Only renders when under attack) --- */}
