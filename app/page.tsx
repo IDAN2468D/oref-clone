@@ -395,7 +395,7 @@ export default function Home() {
   };
 
   return (
-    <div ref={containerRef} className={`min-h-screen transition-colors duration-700 relative overflow-hidden ${isTargetedCurrently ? 'bg-red-950/20' : 'bg-[#020617]'} ${isDarkOpsMode ? 'dark-ops-mode' : ''}`}>
+    <div ref={containerRef} className={`min-h-screen transition-colors duration-700 relative overflow-x-hidden ${isTargetedCurrently ? 'bg-red-950/20' : 'bg-[#020617]'} ${isDarkOpsMode ? 'dark-ops-mode' : ''}`}>
       <audio ref={audioRef} src={dynamicSrc} preload="auto" />
 
       {/* Background Graphic Grid */}
