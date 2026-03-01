@@ -1,6 +1,6 @@
 "use client";
 import React, { useEffect } from "react";
-import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, TileLayer, CircleMarker, Tooltip, useMap, Polyline } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
 // Basic Map bounds & coordinates for demonstration context
@@ -124,6 +124,30 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
         [29.6, 34.9]  // Eilat area
     ];
 
+    // Trajectory Logic: Connect alerts that happened close in time
+    const trajectories = React.useMemo(() => {
+        if (history.length < 2) return [];
+        const lines: [number, number][][] = [];
+        // Look at the last 5 alerts and group them if they are within 10 minutes of each other
+        for (let i = 0; i < Math.min(history.length - 1, 5); i++) {
+            const current = history[i];
+            const next = history[i + 1];
+
+            const currTime = new Date(current.timestamp).getTime();
+            const nextTime = new Date(next.timestamp).getTime();
+
+            if (Math.abs(currTime - nextTime) < 1000 * 60 * 10) {
+                const c1 = Array.isArray(current.cities) ? current.cities[0] : (current.cities as string);
+                const c2 = Array.isArray(next.cities) ? next.cities[0] : (next.cities as string);
+
+                if (cityCoordinates[c1] && cityCoordinates[c2]) {
+                    lines.push([cityCoordinates[c2], cityCoordinates[c1]]);
+                }
+            }
+        }
+        return lines;
+    }, [history]);
+
     return (
         <div className="w-full h-full rounded-xl overflow-hidden shadow-2xl border border-slate-700 relative">
             <MapContainer
@@ -231,6 +255,27 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
                     })
                 )}
 
+                {/* Draw Trajectory Vectors (Connect recent sequence) */}
+                {trajectories.map((pos, idx) => (
+                    <Polyline
+                        key={`traj-${idx}`}
+                        positions={pos as [number, number][]}
+                        pathOptions={{
+                            color: "#f97316",
+                            weight: 2,
+                            dashArray: "5, 10",
+                            opacity: 0.6
+                        }}
+                    >
+                        <Tooltip sticky direction="center" opacity={0.6}>
+                            Trajectory Vector Alpha-{idx}
+                        </Tooltip>
+                    </Polyline>
+                ))}
+
+                {/* Orbital Satellites (Advanced Tactical Element) */}
+                <OrbitalSatellites />
+
                 {/* Draw active blips on map */}
                 {(!isHeatmap || activeCities.length > 0) && activeCities.map((city, idx) => {
                     // Hash string to scatter unknown cities transparently across Israel bounds
@@ -305,6 +350,42 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
                 </div>
             )}
         </div>
+    );
+}
+
+function OrbitalSatellites() {
+    const [angle, setAngle] = React.useState(0);
+
+    React.useEffect(() => {
+        const interval = setInterval(() => {
+            setAngle(prev => (prev + 0.5) % 360);
+        }, 50);
+        return () => clearInterval(interval);
+    }, []);
+
+    const radius = 2.0; // Zoom level dependent radius
+    const center: [number, number] = [31.5, 34.8];
+    const satPos: [number, number] = [
+        center[0] + radius * Math.cos(angle * Math.PI / 180),
+        center[1] + radius * Math.sin(angle * Math.PI / 180)
+    ];
+
+    return (
+        <React.Fragment>
+            <CircleMarker
+                center={satPos}
+                radius={3}
+                pathOptions={{ color: "#38bdf8", fillColor: "#0ea5e9", fillOpacity: 0.9 }}
+            >
+                <Tooltip direction="right" permanent className="satellite-label">
+                    🛰️ SAT-GEO-1 (Live Ops)
+                </Tooltip>
+            </CircleMarker>
+            <Polyline
+                positions={[satPos, center]}
+                pathOptions={{ color: "#38bdf8", weight: 0.5, opacity: 0.2, dashArray: "2,4" }}
+            />
+        </React.Fragment>
     );
 }
 

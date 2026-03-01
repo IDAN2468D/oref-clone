@@ -45,6 +45,9 @@ export default function Home() {
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [osintUpdates, setOsintUpdates] = useState<string[]>([]);
   const [syncStatus, setSyncStatus] = useState<'success' | 'fallback' | 'loading'>('loading');
+  const [showReport, setShowReport] = useState(false);
+  const [strategicReport, setStrategicReport] = useState("");
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -359,9 +362,11 @@ export default function Home() {
   const isTargetedCurrently = activeAlerts.length > 0 &&
     (monitoredZones.length === 0 || activeAlerts.some(c => monitoredZones.some(zone => c.includes(zone))));
 
-  const dynamicSrc = history.length > 0 && history[0].title?.includes("כלי טיס")
-    ? "https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg"
-    : "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg";
+  const isDrones = history.length > 0 && (history[0].title?.includes("כלי טיס") || history[0].title?.includes("חדירת"));
+
+  const dynamicSrc = isDrones
+    ? "https://actions.google.com/sounds/v1/alarms/bugle_tune.ogg" // Tactical drone alert
+    : "https://actions.google.com/sounds/v1/alarms/alarm_clock.ogg"; // Standard rocket siren
 
   useEffect(() => {
     if (isDarkOpsMode) {
@@ -370,6 +375,31 @@ export default function Home() {
       document.body.classList.remove('dark-ops-mode');
     }
   }, [isDarkOpsMode]);
+
+  const generateStrategicReport = async () => {
+    setIsGeneratingReport(true);
+    setShowReport(true);
+    try {
+      const resp = await fetch('/api/ai-analyst', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          activeAlerts: activeAlerts,
+          history: history,
+          isLTR: isLTR,
+          isDeepAudit: true
+        })
+      });
+      if (resp.ok) {
+        const data = await resp.json();
+        setStrategicReport(data.insight);
+      }
+    } catch (e) {
+      setStrategicReport("שגיאה בהפקת דוח אסטרטגי. נסה שנית.");
+    } finally {
+      setIsGeneratingReport(false);
+    }
+  };
 
   const exportSituationReport = async () => {
     if (!containerRef.current) return;
@@ -433,7 +463,7 @@ export default function Home() {
             <button onClick={() => { setIsLTR(!isLTR); document.documentElement.dir = !isLTR ? "ltr" : "rtl"; }} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Switch to Hebrew" : "שנה שפה לאנגלית"}>
               <Globe size={18} />
             </button>
-            <button onClick={() => setShowAnalyticsModal(true)} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Deep Analytics" : "ניתוח עומק"}>
+            <button onClick={generateStrategicReport} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Intelligence Report" : "דוח מודיעין"}>
               <LineChart size={18} />
             </button>
 
@@ -658,6 +688,22 @@ export default function Home() {
 
         {/* RIGHT SIDEBAR (Focus & Stats) - 4 Cols */}
         <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-3 lg:order-1">
+
+          {/* MOBILE SYNC QR (NEW FEATURE) */}
+          <div className="glass-card rounded-2xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center">
+            <div className="w-10 h-10 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 mb-2">
+              <Globe size={24} />
+            </div>
+            <h3 className="text-white font-bold text-sm tracking-wide">חמ&quot;ל נייד (Sync QR)</h3>
+            <p className="text-[10px] text-slate-400 leading-tight">סרוק לסנכרון הגדרות המכ&quot;ם לטלפון שלך לצפייה בזמן אמת בממ&quot;ד.</p>
+            <div className="p-3 bg-white rounded-xl shadow-[0_0_20px_rgba(255,255,255,0.1)] group-hover:scale-105 transition-transform">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=100x100&data=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`}
+                alt="Sync QR"
+                className="w-24 h-24 grayscale-[0.5] hover:grayscale-0 transition-all opacity-80"
+              />
+            </div>
+          </div>
 
           {/* LIVE COMBAT FEED (Historic Log) */}
           <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px] order-1 lg:order-none">
@@ -1001,6 +1047,70 @@ export default function Home() {
         </div>
       )}
 
+      {/* --- STRATEGIC REPORT MODAL (AI-FIRST REPORT) --- */}
+      <AnimatePresence>
+        {showReport && (
+          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-2xl">
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              className="bg-slate-900 border border-indigo-500/40 rounded-[2rem] p-8 max-w-2xl w-full shadow-[0_0_80px_rgba(79,70,229,0.4)] relative overflow-hidden"
+            >
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent"></div>
+
+              <button onClick={() => setShowReport(false)} className="absolute top-6 left-6 text-slate-500 hover:text-white transition-all bg-slate-800/50 p-2 rounded-full border border-slate-700">
+                <X size={20} />
+              </button>
+
+              <div className="flex items-center gap-4 mb-8">
+                <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30">
+                  <BrainCircuit className="text-indigo-400" size={32} />
+                </div>
+                <div>
+                  <h2 className="text-2xl font-black text-white tracking-tight">{isLTR ? "Tactical intelligence Report" : "דוח מודיעין אסטרטגי (AI)"}</h2>
+                  <p className="text-indigo-400/60 text-xs font-mono uppercase tracking-[0.2em]">{new Date().toLocaleDateString('he-IL')}</p>
+                </div>
+              </div>
+
+              <div className="max-h-[50vh] overflow-y-auto pr-4 custom-scrollbar bg-black/20 rounded-2xl p-6 border border-slate-800 shadow-inner">
+                {isGeneratingReport ? (
+                  <div className="flex flex-col items-center justify-center py-20 space-y-4">
+                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+                    <p className="text-slate-500 font-mono text-[10px] animate-pulse uppercase tracking-widest">{isLTR ? "Connecting to Defense Intelligence Network..." : "מתחבר לרשת הלוויינים..."}</p>
+                  </div>
+                ) : (
+                  <div className="text-slate-300 leading-relaxed whitespace-pre-wrap font-medium text-sm sm:text-base selection:bg-indigo-500/30">
+                    {strategicReport}
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-8 flex justify-end gap-4">
+                <button
+                  onClick={() => {
+                    const blob = new Blob([strategicReport], { type: 'text/plain' });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    a.download = `oref-intelligence-${Date.now()}.txt`;
+                    a.click();
+                  }}
+                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all border border-slate-700 text-sm flex items-center gap-2"
+                >
+                  <Share2 size={16} /> הורד דוח
+                </button>
+                <button
+                  onClick={() => setShowReport(false)}
+                  className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black rounded-2xl transition-all shadow-xl text-sm"
+                >
+                  סגור
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 }
