@@ -1,18 +1,9 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-// Local filepath to permanently save the history of alerts
-const DB_PATH = path.join(process.cwd(), 'alerts_db.json');
-
-function initDB() {
-    if (!fs.existsSync(DB_PATH)) {
-        fs.writeFileSync(DB_PATH, JSON.stringify([]));
-    }
-}
+import dbConnect from '@/lib/mongodb';
+import Alert, { IAlert } from '@/models/Alert';
 
 export async function GET() {
-    initDB();
+    await dbConnect();
 
     let data = null;
     let fetchError = false;
@@ -48,26 +39,29 @@ export async function GET() {
         fetchError = true;
     }
 
-    // 2. Read local Database
-    const existingAlerts = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+    // 2. Sync Official API Payload to DB
     let isNewAlert = false;
-
-    // 3. Sync Official API Payload to DB
     if (data && data.data && data.data.length > 0) {
-        const newAlert = {
-            id: data.id,
-            cities: data.data,
-            title: data.title,
-            timestamp: new Date().toISOString()
-        };
-
-        const exists = existingAlerts.some((a: { id: string }) => a.id === newAlert.id);
-        if (!exists) {
-            existingAlerts.unshift(newAlert);
-            fs.writeFileSync(DB_PATH, JSON.stringify(existingAlerts, null, 2));
-            isNewAlert = true;
+        try {
+            const res = await Alert.findOneAndUpdate(
+                { id: data.id },
+                {
+                    id: data.id,
+                    cities: data.data,
+                    title: data.title,
+                    timestamp: new Date().toISOString()
+                },
+                { upsert: true, new: true, setDefaultsOnInsert: true }
+            );
+            // If it's a new document
+            if (res) isNewAlert = true;
+        } catch (e) {
+            console.error('[API/Alerts] MongoDB Save Error:', e);
         }
     }
+
+    // 3. Read Database
+    const existingAlerts = await Alert.find({}).sort({ timestamp: -1 }).limit(100).lean();
 
     // 4. --- MAGICAL SYNC FOR SIMULATIONS / ALL ALERTS ---
     const now = new Date().getTime();
@@ -78,7 +72,7 @@ export async function GET() {
     }
 
     // Mark any alert in DB from the last 1.5 minutes as ACTIVE 
-    existingAlerts.forEach((alert: { timestamp: string, cities: string[] }) => {
+    (existingAlerts as unknown as IAlert[]).forEach((alert) => {
         const alertTime = new Date(alert.timestamp).getTime();
         const diffMinutes = Math.abs(now - alertTime) / (1000 * 60);
 

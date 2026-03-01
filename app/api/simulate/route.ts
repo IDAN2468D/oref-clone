@@ -1,17 +1,10 @@
 import { NextResponse } from 'next/server';
-import fs from 'fs';
-import path from 'path';
-
-const DB_PATH = path.join(process.cwd(), 'alerts_db.json');
+import dbConnect from '@/lib/mongodb';
+import Alert from '@/models/Alert';
 
 export async function POST() {
     try {
-        if (!fs.existsSync(DB_PATH)) {
-            fs.writeFileSync(DB_PATH, JSON.stringify([]));
-        }
-
-        // Read current alerts
-        const existingAlerts = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8'));
+        await dbConnect();
 
         // Create a mock alert matching the exact expected interface
         const fakeAlert = {
@@ -21,11 +14,8 @@ export async function POST() {
             timestamp: new Date().toISOString()
         };
 
-        // Inject at the top of the history
-        existingAlerts.unshift(fakeAlert);
-
-        // Persist to DB
-        fs.writeFileSync(DB_PATH, JSON.stringify(existingAlerts, null, 2));
+        // Persist to MongoDB
+        await Alert.create(fakeAlert);
 
         return NextResponse.json({ success: true, alert: fakeAlert });
     } catch (error) {
