@@ -129,12 +129,7 @@ function MapContent({ activeCities, isHeatmap = false, history = [], userCoords 
             <MapContainer
                 center={[31.5, 34.8]}
                 zoom={7}
-                minZoom={7}
-                maxBounds={[
-                    [29.0, 33.5], // South West Israel
-                    [33.5, 36.5]  // North East Israel / Golan
-                ]}
-                maxBoundsViscosity={1.0}
+                minZoom={4}
                 style={{ height: "100%", width: "100%", zIndex: 0, backgroundColor: "#020617" }}
                 zoomControl={false}
                 scrollWheelZoom={false}

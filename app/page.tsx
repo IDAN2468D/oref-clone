@@ -302,7 +302,11 @@ export default function Home() {
           .catch(() => setFilterCity(""));
 
       }, () => {
-        alert("לא אושר מיקום.");
+        alert("לא אושר מיקום או שיש בעיית קליטה.");
+      }, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
       });
     }
   };
