@@ -209,20 +209,48 @@ const MapContent = memo(({ activeCities, isHeatmap = false, history = [], userCo
                 )}
             </MapContainer>
 
-            {/* RADAR OVERLAYS */}
-            <div className="absolute inset-0 pointer-events-none z-[400] overflow-hidden">
-                {/* Crosshairs */}
-                <div className="absolute inset-0 opacity-[0.1]">
-                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-red-500/50"></div>
-                    <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-red-500/50"></div>
+            {/* SONAR UI OVERLAY */}
+            <div className="absolute inset-0 pointer-events-none z-[400] overflow-hidden sonar-glow">
+                {/* Background Grid */}
+                <div className="absolute inset-0 radar-grid-pattern opacity-20" />
+
+                {/* Concentric Sonar Rings */}
+                <div className="radar-ring w-[200px] h-[200px]" />
+                <div className="radar-ring w-[400px] h-[400px]" />
+                <div className="radar-ring w-[600px] h-[600px]" />
+                <div className="radar-ring w-[800px] h-[800px] border-dashed" />
+
+                {/* Tactical Crosshairs */}
+                <div className="absolute inset-0">
+                    <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-emerald-500/20" />
+                    <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-emerald-500/20" />
+
+                    {/* Tick Marks */}
+                    <div className="absolute left-1/2 top-1/4 w-4 h-[1px] bg-emerald-500/40 -translate-x-1/2" />
+                    <div className="absolute left-1/2 top-3/4 w-4 h-[1px] bg-emerald-500/40 -translate-x-1/2" />
+                    <div className="absolute top-1/2 left-1/4 h-4 w-[1px] bg-emerald-500/40 -translate-y-1/2" />
+                    <div className="absolute top-1/2 left-3/4 h-4 w-[1px] bg-emerald-500/40 -translate-y-1/2" />
                 </div>
 
-                {/* Radar Sweep (When no active threats) */}
-                {activeCities.length === 0 && !isHeatmap && (
-                    <div className="absolute top-1/2 left-1/2 w-[800px] h-[800px] border border-emerald-500/5 rounded-full -translate-x-1/2 -translate-y-1/2">
-                        <div className="absolute top-0 right-1/2 w-1/2 h-1/2 bg-[conic-gradient(from_0deg_at_100%_100%,rgba(16,185,129,0)_0deg,rgba(16,185,129,0.1)_90deg)] animate-radar-sweep border-r border-emerald-500/20 origin-bottom-right" />
+                {/* Sonar Sweep (Active scanning) */}
+                <div className="absolute top-1/2 left-1/2 w-[1000px] h-[1000px] -translate-x-1/2 -translate-y-1/2">
+                    <div className="absolute top-0 right-1/2 w-1/2 h-1/2 bg-[conic-gradient(from_0deg_at_100%_100%,rgba(16,185,129,0)_0deg,rgba(16,185,129,0.2)_60deg,rgba(16,185,129,0.4)_90deg)] animate-radar-sweep origin-bottom-right border-r-2 border-emerald-400/50 blur-[2px]" />
+                </div>
+
+                {/* TACTICAL HUD ELEMENTS (Corner Readouts) */}
+                <div className="absolute top-6 left-6 flex flex-col gap-1">
+                    <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 bg-emerald-500 animate-pulse" />
+                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest font-mono">System Live</span>
                     </div>
-                )}
+                    <div className="text-[8px] text-emerald-500/60 font-mono">SCAN_FREQ: 2.4 GHz</div>
+                    <div className="text-[8px] text-emerald-500/60 font-mono">AZIMUTH: {(Math.random() * 360).toFixed(2)}°</div>
+                </div>
+
+                <div className="absolute bottom-6 right-6 text-right font-mono">
+                    <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">Target Acquisition: {activeCities.length > 0 ? 'LOCKED' : 'STANDBY'}</div>
+                    <div className="text-[8px] text-emerald-500/40 mt-1">LAT: 31.0461 | LNG: 34.8516</div>
+                </div>
             </div>
 
             {/* THREAT HUD */}
