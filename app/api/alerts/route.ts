@@ -47,18 +47,29 @@ export async function GET() {
         console.error('[API/Alerts] History fetch error:', e);
     }
 
-    // Helper to parse Oref's DD.MM.YYYY HH:mm:ss into standard ISO
+    // Helper to parse Oref's DD.MM.YYYY HH:mm:ss into REAL UTC
     const parseOrefDate = (dateStr: string) => {
         try {
             if (!dateStr || dateStr.includes('T')) return dateStr;
             const [datePart, timePart] = dateStr.split(' ');
             const [d, m, y] = datePart.split('.').map(Number);
             const [hh, mm, ss] = timePart.split(':').map(Number);
-            // Oref is Israel Time (UTC+2 or UTC+3). 
-            // We'll create a date object which defaults to server local time, 
-            // but for Oref alerts, we should be careful.
-            // For most reliable results, we interpret it as a local date string.
-            return new Date(y, m - 1, d, hh, mm, ss || 0).toISOString();
+
+            // Create local wall clock date
+            const wallClock = new Date(y, m - 1, d, hh, mm, ss || 0);
+
+            // Dynamically find Israel offset for this specific date (handles DST)
+            const formatter = new Intl.DateTimeFormat('en-US', {
+                timeZone: 'Asia/Jerusalem',
+                timeZoneName: 'longOffset'
+            });
+            const offsetPart = formatter.formatToParts(wallClock).find(p => p.type === 'timeZoneName')?.value || "GMT+02:00";
+            const match = offsetPart.match(/GMT([+-])(\d+):/);
+            const offsetHours = match ? parseInt(match[2]) * (match[1] === '-' ? -1 : 1) : 2;
+
+            // Convert wall clock to UTC
+            const utcMillis = wallClock.getTime() - (offsetHours * 60 * 60 * 1000);
+            return new Date(utcMillis).toISOString();
         } catch (e) {
             return new Date().toISOString();
         }
@@ -67,13 +78,14 @@ export async function GET() {
     // 3. Sync everything to DB
     if (data && data.data && data.data.length > 0) {
         try {
+            // Check if this alert is new-ish before saving
             await Alert.findOneAndUpdate(
                 { id: data.id },
                 {
                     id: data.id,
                     cities: data.data,
                     title: data.title,
-                    timestamp: new Date().toISOString()
+                    timestamp: new Date().toISOString() // Real-time alerts get current UTC server time
                 },
                 { upsert: true }
             );
@@ -84,7 +96,7 @@ export async function GET() {
 
     // Sync from history payload too (Backup/OSINT Source)
     if (Array.isArray(historyPayload)) {
-        for (const item of historyPayload.slice(0, 15)) {
+        for (const item of historyPayload.slice(0, 30)) {
             try {
                 const standardizedDate = parseOrefDate(item.alertDate);
                 await Alert.findOneAndUpdate(
@@ -104,7 +116,7 @@ export async function GET() {
     // 4. Read Database (Last 100 for feed, calculate ACTIVE from these)
     const existingAlerts = await Alert.find({}).sort({ timestamp: -1 }).limit(100).lean();
 
-    // 5. Build active list (Real-time + anything in last 3 minutes in DB)
+    // 5. Build active list (Real-time + anything in last 5 minutes in DB for better coverage)
     const now = new Date().getTime();
     const activeCities = new Set<string>();
 
@@ -117,8 +129,8 @@ export async function GET() {
         const diffMs = now - alertTime;
         const diffMinutes = diffMs / (1000 * 60);
 
-        // If it happened in the last 3 minutes AND it's not a future timestamp (oops)
-        if (diffMinutes >= 0 && diffMinutes <= 3.0) {
+        // Window: 5 minutes to stay on map, allow -2 min drift for sync
+        if (diffMinutes >= -2 && diffMinutes <= 5.0) {
             if (Array.isArray(alert.cities)) {
                 alert.cities.forEach((c: string) => activeCities.add(c));
             } else if (typeof alert.cities === 'string') {
@@ -127,9 +139,11 @@ export async function GET() {
         }
     });
 
+    console.log(`[API/Alerts Audit] Active Count: ${activeCities.size}. Server Time UTC: ${new Date().toISOString()}`);
+
     return NextResponse.json({
         active: { data: Array.from(activeCities) },
         saved_alerts: existingAlerts,
-        status: (fetchError || (data === null)) ? 'fallback' : 'success'
+        status: (fetchError || (!data && historyPayload.length === 0)) ? 'fallback' : 'success'
     });
 }

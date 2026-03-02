@@ -80,104 +80,75 @@ export default function Home() {
       .catch(console.error);
   }, []);
 
-  // Poll server for live API states
   useEffect(() => {
     if (isTimeMachineActive) return;
 
     const fetchAlerts = async () => {
       try {
-        const res = await fetch('/api/alerts');
-        if (!res.ok) {
+        const response = await fetch(`/api/alerts?t=${Date.now()}`, {
+          cache: 'no-store',
+          headers: { 'Pragma': 'no-cache' }
+        });
+
+        if (!response.ok) {
           setSyncStatus('fallback');
           return;
         }
 
-        const data = await res.json();
+        const data = await response.json();
         setSyncStatus(data.status || 'success');
-        const rawActive = (data.active && data.active.data) || [];
 
-        // Oref API sometimes sends system messages (like "All Clear" or instructions) disguised as target names.
+        const rawActive = data.active?.data || [];
         const incomingActive = rawActive.filter((c: string) => !c.includes("ניתן לצאת") && !c.includes("הנחיות") && !c.includes("אך יש להישאר"));
         const customMessageStr = rawActive.find((c: string) => c.includes("ניתן לצאת") || c.includes("הנחיות") || c.includes("אך יש להישאר"));
-        const hasAllClearMessage = !!customMessageStr;
+
+        if (customMessageStr) setSystemMessage(customMessageStr);
 
         if (incomingActive.length > 0) {
           console.log(`[TAC-OPS] Active threats detected: ${incomingActive.join(', ')}`);
         }
 
-        if (customMessageStr) setSystemMessage(customMessageStr);
-
         setActiveAlerts(prev => {
-          if (JSON.stringify(prev) !== JSON.stringify(incomingActive)) {
+          const hasChanged = JSON.stringify(prev) !== JSON.stringify(incomingActive);
+          if (hasChanged) {
             setIsBannerDismissed(false);
-
-            if (incomingActive.length > 0) {
-              setShowAllClear(false);
-            }
-            else if ((incomingActive.length === 0 && prev.length > 0) || hasAllClearMessage) {
-              setShowAllClear(true);
-            }
-
-            return incomingActive;
+            if (incomingActive.length > 0) setShowAllClear(false);
+            else if (prev.length > 0 || !!customMessageStr) setShowAllClear(true);
           }
-
-          if (hasAllClearMessage && incomingActive.length === 0) {
-            setShowAllClear(true);
-          }
-
-          return prev;
+          return incomingActive;
         });
 
-        // Track History
         if (data.saved_alerts) {
           const newLength = data.saved_alerts.length;
-          // Only trigger sirens for NEW alerts after the first successful sync
           if (previousHistoryLength.current > 0 && newLength > previousHistoryLength.current) {
             const newestAlert = data.saved_alerts[0];
             const newlyAddedArr = Array.isArray(newestAlert.cities) ? newestAlert.cities : [newestAlert.cities];
-
             const monitoredZones = filterCity.split(',').map(z => z.trim()).filter(z => z !== "");
             const isThreatToUser = monitoredZones.length === 0 || newlyAddedArr.some((c: string) => monitoredZones.some(zone => c.includes(zone)));
 
-            if (isThreatToUser && newlyAddedArr.some((c: string) => !c.includes("ניתן לצאת") && !c.includes("אך יש להישאר"))) {
-              if (!isMuted && audioRef.current) {
-                audioRef.current.play().catch(e => console.log("Init audio error:", e));
-              }
-
+            if (isThreatToUser && newlyAddedArr.some((c: string) => !c.includes("ניתן לצאת"))) {
+              if (!isMuted && audioRef.current) audioRef.current.play().catch(console.error);
               if (isTTSOn && window.speechSynthesis) {
-                const speechStr = isLTR
-                  ? `Warning! Incoming attack detected at ${newlyAddedArr.join(', ')}. Please take cover.`
-                  : `צבע אדום ב: ${newlyAddedArr.join(', ')}`;
+                const speechStr = isLTR ? `Warning! Attack at ${newlyAddedArr.join(', ')}.` : `צבע אדום ב: ${newlyAddedArr.join(', ')}`;
                 const speech = new SpeechSynthesisUtterance(speechStr);
                 speech.lang = isLTR ? 'en-US' : 'he-IL';
-                speech.rate = 1.1;
-                speech.pitch = 0.9;
                 window.speechSynthesis.speak(speech);
               }
-
               if (isPushOn && Notification.permission === 'granted') {
-                navigator.serviceWorker.ready.then((reg) => {
-                  reg.showNotification('צבע אדום!', {
-                    body: `התרעה מאומתת: ${newlyAddedArr.join(', ')}`,
-                    icon: '/icon-192x192.png',
-                    tag: 'oref-alert'
-                  });
-                });
+                navigator.serviceWorker.ready.then(reg => reg.showNotification('צבע אדום!', { body: `${newlyAddedArr.join(', ')}` }));
               }
             }
           }
           previousHistoryLength.current = newLength;
           setHistory(data.saved_alerts);
         }
-
-        const nowTime = new Date();
-        setLastUpdateTime(`${nowTime.getHours().toString().padStart(2, '0')}:${nowTime.getMinutes().toString().padStart(2, '0')}:${nowTime.getSeconds().toString().padStart(2, '0')}`);
-
+        setLastUpdateTime(new Date().toLocaleTimeString('he-IL'));
       } catch (e) {
         console.error("[TAC-OPS] Signal Drop:", e);
         setSyncStatus('fallback');
       }
     };
+
     fetchAlerts();
     const intervalId = setInterval(fetchAlerts, 2000);
     return () => clearInterval(intervalId);
