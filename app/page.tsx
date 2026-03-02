@@ -101,6 +101,10 @@ export default function Home() {
         const customMessageStr = rawActive.find((c: string) => c.includes("ניתן לצאת") || c.includes("הנחיות") || c.includes("אך יש להישאר"));
         const hasAllClearMessage = !!customMessageStr;
 
+        if (incomingActive.length > 0) {
+          console.log(`[TAC-OPS] Active threats detected: ${incomingActive.join(', ')}`);
+        }
+
         if (customMessageStr) setSystemMessage(customMessageStr);
 
         setActiveAlerts(prev => {
@@ -170,7 +174,7 @@ export default function Home() {
         setLastUpdateTime(`${nowTime.getHours().toString().padStart(2, '0')}:${nowTime.getMinutes().toString().padStart(2, '0')}:${nowTime.getSeconds().toString().padStart(2, '0')}`);
 
       } catch (e) {
-        console.error("Signal Drop:", e);
+        console.error("[TAC-OPS] Signal Drop:", e);
         setSyncStatus('fallback');
       }
     };

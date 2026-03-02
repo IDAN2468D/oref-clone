@@ -47,6 +47,23 @@ export async function GET() {
         console.error('[API/Alerts] History fetch error:', e);
     }
 
+    // Helper to parse Oref's DD.MM.YYYY HH:mm:ss into standard ISO
+    const parseOrefDate = (dateStr: string) => {
+        try {
+            if (!dateStr || dateStr.includes('T')) return dateStr;
+            const [datePart, timePart] = dateStr.split(' ');
+            const [d, m, y] = datePart.split('.').map(Number);
+            const [hh, mm, ss] = timePart.split(':').map(Number);
+            // Oref is Israel Time (UTC+2 or UTC+3). 
+            // We'll create a date object which defaults to server local time, 
+            // but for Oref alerts, we should be careful.
+            // For most reliable results, we interpret it as a local date string.
+            return new Date(y, m - 1, d, hh, mm, ss || 0).toISOString();
+        } catch (e) {
+            return new Date().toISOString();
+        }
+    };
+
     // 3. Sync everything to DB
     if (data && data.data && data.data.length > 0) {
         try {
@@ -65,17 +82,18 @@ export async function GET() {
         }
     }
 
-    // Sync from history payload too
+    // Sync from history payload too (Backup/OSINT Source)
     if (Array.isArray(historyPayload)) {
-        for (const item of historyPayload.slice(0, 10)) { // sync last 10
+        for (const item of historyPayload.slice(0, 15)) {
             try {
+                const standardizedDate = parseOrefDate(item.alertDate);
                 await Alert.findOneAndUpdate(
                     { id: item.rid || item.id },
                     {
                         id: item.rid || item.id,
                         cities: item.data,
                         title: item.title,
-                        timestamp: item.alertDate || new Date().toISOString()
+                        timestamp: standardizedDate
                     },
                     { upsert: true }
                 );
@@ -83,10 +101,10 @@ export async function GET() {
         }
     }
 
-    // 4. Read Database
+    // 4. Read Database (Last 100 for feed, calculate ACTIVE from these)
     const existingAlerts = await Alert.find({}).sort({ timestamp: -1 }).limit(100).lean();
 
-    // 5. Build active list (Real-time + anything in last 3 minutes)
+    // 5. Build active list (Real-time + anything in last 3 minutes in DB)
     const now = new Date().getTime();
     const activeCities = new Set<string>();
 
@@ -96,9 +114,11 @@ export async function GET() {
 
     (existingAlerts as unknown as IAlert[]).forEach((alert) => {
         const alertTime = new Date(alert.timestamp).getTime();
-        const diffMinutes = Math.abs(now - alertTime) / (1000 * 60);
+        const diffMs = now - alertTime;
+        const diffMinutes = diffMs / (1000 * 60);
 
-        if (diffMinutes <= 3.0) { // Increased window to 3 minutes for visibility
+        // If it happened in the last 3 minutes AND it's not a future timestamp (oops)
+        if (diffMinutes >= 0 && diffMinutes <= 3.0) {
             if (Array.isArray(alert.cities)) {
                 alert.cities.forEach((c: string) => activeCities.add(c));
             } else if (typeof alert.cities === 'string') {
@@ -110,6 +130,6 @@ export async function GET() {
     return NextResponse.json({
         active: { data: Array.from(activeCities) },
         saved_alerts: existingAlerts,
-        status: fetchError ? 'fallback' : 'success'
+        status: (fetchError || (data === null)) ? 'fallback' : 'success'
     });
 }
