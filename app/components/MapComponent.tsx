@@ -156,7 +156,7 @@ const MapContent = memo(({ activeCities, isHeatmap = false, history = [], userCo
             >
                 <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    className="grayscale invert brightness-[0.4] contrast-[1.2]"
+                    className="grayscale brightness-[0.6] contrast-[1.3] opacity-80"
                 />
 
                 <MapUpdater activeCities={activeCities} userCoords={userCoords} />
