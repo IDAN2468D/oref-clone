@@ -70,12 +70,12 @@ function MapUpdater({ activeCities, userCoords }: { activeCities: string[], user
         const flyTimer = setTimeout(() => {
             if (activeCities.length > 0) {
                 const firstTarget = activeCities[0];
-                const coords = cityCoordinates[firstTarget] || [31.5, 34.8];
+                const coords = cityCoordinates[firstTarget] || [31.5, 35.1];
                 map.flyTo(coords, 10, { animate: true, duration: 1.5 });
             } else if (userCoords) {
                 map.flyTo(userCoords, 12, { animate: true, duration: 2 });
             } else {
-                map.flyTo([31.5, 34.8], 7.5, { animate: true, duration: 2 });
+                map.flyTo([31.5, 35.1], 8.5, { animate: true, duration: 2 });
             }
         }, 300);
         return () => clearTimeout(flyTimer);
@@ -92,7 +92,7 @@ function OrbitalSatellites() {
     }, []);
 
     const radius = 1.2;
-    const center: [number, number] = [31.5, 34.8];
+    const center: [number, number] = [31.5, 35.1];
     const satPos: [number, number] = [
         center[0] + radius * Math.cos(angle * Math.PI / 180),
         center[1] + radius * Math.sin(angle * Math.PI / 180)
@@ -147,16 +147,18 @@ const MapContent = memo(({ activeCities, isHeatmap = false, history = [], userCo
     return (
         <div className="w-full h-full relative group">
             <MapContainer
-                center={[31.5, 34.8]}
-                zoom={7.2}
+                center={[31.8, 35.1]}
+                zoom={8.5}
                 className="h-full w-full"
                 zoomControl={false}
                 attributionControl={false}
-                style={{ background: "#020617" }}
+                style={{ background: "#010413" }}
+                maxBounds={[[29.0, 33.0], [34.5, 37.0]]}
+                minZoom={7.5}
             >
                 <TileLayer
                     url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-                    className="grayscale brightness-[0.6] contrast-[1.3] opacity-80"
+                    className="brightness-[1.1] contrast-[1.3] saturate-0 opacity-100"
                 />
 
                 <MapUpdater activeCities={activeCities} userCoords={userCoords} />
