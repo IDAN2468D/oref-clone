@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useEffect, useRef } from 'react';
 import dynamic from 'next/dynamic';
-import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon, Menu } from "lucide-react";
+import { ShieldAlert, History, Volume2, VolumeX, Globe, Moon, Share2, Activity, BarChart3, MapPin, AlertTriangle, MonitorPlay, X, CheckCircle, BrainCircuit, Layers, LineChart, Bell, BellOff, Crosshair, Map as MapIcon, Menu, Zap } from "lucide-react";
 import { motion, AnimatePresence } from 'framer-motion';
 
 // Dynamic imports to prevent SSR errors with heavy/DOM-dependent libraries
@@ -49,6 +49,14 @@ export default function Home() {
   const [strategicReport, setStrategicReport] = useState("");
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [qrUrl, setQrUrl] = useState<string>("");
+
+  // ADVANCED COMMAND SUITE STATE
+  const [isCommandMode, setIsCommandMode] = useState(false);
+  const [reports, setReports] = useState<{ id: string; lat: number; lng: number; type: string; timestamp: string }[]>([]);
+  const [isVoiceActive, setIsVoiceActive] = useState(false);
+  const [transcript, setTranscript] = useState("");
+  const [nearestShelterNode, setNearestShelterNode] = useState<[number, number] | null>(null);
+
   const containerRef = useRef<HTMLDivElement>(null);
 
   // Refs to track previous states without re-triggering hooks needlessly
@@ -382,21 +390,66 @@ export default function Home() {
   const exportSituationReport = async () => {
     if (!containerRef.current) return;
     try {
-      // const canvas = await html2canvas(containerRef.current, { backgroundColor: '#000000' });
-      // const imgData = canvas.toDataURL('image/jpeg', 0.8);
-
       const text = isLTR
         ? `🚨 Tactical Alert: Active threat in ${activeAlerts.join(", ")}. Insight: ${aiInsight}`
         : `🚨 עדכון חמ"ל פיקוד: אירוע פעיל ב${activeAlerts.join(", ")}. פרשנות כלי ה-AI: ${aiInsight}`;
 
       const whatsappUrl = `https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`;
       window.open(whatsappUrl, '_blank');
-      // In a real mobile environment (Cordova/Capacitor/Web Share API), we would share the actual image blob:
-      // navigator.share({ files: [new File([blob], 'report.jpg')], title: 'Situation Report', text: text });
     } catch (e) {
       console.error("Exports failed", e);
     }
   };
+
+  // --- CITIZEN INTEL & TACTICAL ROUTING ---
+  const reportImpact = (type: string) => {
+    if (!userCoords) {
+      alert(isLTR ? "GPS Lock Required for Reporting" : "נדרש נעילת GPS לדיווח");
+      return;
+    }
+    const newReport = {
+      id: Math.random().toString(36).substr(2, 9),
+      lat: userCoords[0] + (Math.random() - 0.5) * 0.01,
+      lng: userCoords[1] + (Math.random() - 0.5) * 0.01,
+      type,
+      timestamp: new Date().toISOString()
+    };
+    setReports(prev => [newReport, ...prev].slice(0, 50));
+    if (window.speechSynthesis) {
+      const msg = new SpeechSynthesisUtterance(isLTR ? "Report Logged. Relaying to Command." : "הדיווח נקלט. מועבר למרכז השליטה.");
+      msg.lang = isLTR ? 'en-US' : 'he-IL';
+      window.speechSynthesis.speak(msg);
+    }
+  };
+
+  const findNearestShelter = () => {
+    if (!userCoords) return;
+    const mockShelterList: [number, number][] = [[32.08, 34.78], [32.07, 34.81], [31.76, 35.21], [31.52, 34.60]];
+    let closest: [number, number] | null = null;
+    let minD = Infinity;
+    mockShelterList.forEach(s => {
+      const d = Math.sqrt(Math.pow(s[0] - userCoords[0], 2) + Math.pow(s[1] - userCoords[1], 2));
+      if (d < minD) { minD = d; closest = s; }
+    });
+    setNearestShelterNode(closest);
+  };
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && isVoiceActive && ('SpeechRecognition' in window || 'webkitSpeechRecognition' in window)) {
+      const Recognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+      const recog = new Recognition();
+      recog.continuous = true;
+      recog.lang = isLTR ? 'en-US' : 'he-IL';
+      recog.onresult = (e: any) => {
+        const text = e.results[e.results.length - 1][0].transcript.toLowerCase();
+        setTranscript(text);
+        if (text.includes("נתח") || text.includes("analyze")) generateStrategicReport();
+        if (text.includes("חשאי") || text.includes("dark") || text.includes("stealth")) setIsDarkOpsMode(true);
+      };
+      recog.start();
+      return () => recog.stop();
+    }
+  }, [isVoiceActive, isLTR]);
 
   return (
     <div ref={containerRef} className={`min-h-screen transition-colors duration-700 relative overflow-x-hidden ${isTargetedCurrently ? 'bg-red-950/20' : 'bg-[#020617]'} ${isDarkOpsMode ? 'dark-ops-mode' : ''}`}>
@@ -432,6 +485,22 @@ export default function Home() {
 
           {/* DESKTOP/TABLET ACTIONS (Hidden on Mobile) */}
           <div className="hidden sm:flex items-center gap-2 sm:gap-3">
+            <button
+              onClick={() => setIsVoiceActive(!isVoiceActive)}
+              className={`flex items-center justify-center p-2 sm:p-3 border rounded-xl transition-all ${isVoiceActive ? 'bg-cyan-500/20 border-cyan-400 text-cyan-400 animate-pulse' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}`}
+              title={isLTR ? "Voice Assistant" : "עוזר קולי"}
+            >
+              <MonitorPlay size={18} />
+            </button>
+
+            <button
+              onClick={() => setIsCommandMode(!isCommandMode)}
+              className={`flex items-center justify-center p-2 sm:p-3 border rounded-xl transition-all ${isCommandMode ? 'bg-indigo-500/20 border-indigo-400 text-indigo-400' : 'bg-slate-800 border-slate-700 hover:bg-slate-700 text-slate-300'}`}
+              title={isLTR ? "Command Mode" : "מצב חמ\"ל"}
+            >
+              <History size={18} />
+            </button>
+
             <button onClick={exportSituationReport} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-green-400 rounded-xl transition-colors shrink-0" title={isLTR ? "Export Situation to WhatsApp" : "שתף תמונת מצב לוואטסאפ"}>
               <Share2 size={18} />
             </button>
@@ -442,7 +511,7 @@ export default function Home() {
               <Globe size={18} />
             </button>
             <button onClick={generateStrategicReport} className="flex items-center justify-center p-2 sm:p-3 bg-slate-800 border border-slate-700 hover:bg-slate-700 text-slate-300 rounded-xl transition-colors shrink-0" title={isLTR ? "Intelligence Report" : "דוח מודיעין"}>
-              <LineChart size={18} />
+              <BrainCircuit size={18} />
             </button>
 
             <button onClick={triggerTimeMachine} disabled={isTimeMachineActive} className={`group relative flex items-center justify-center gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r ${isTimeMachineActive ? "from-purple-900 to-indigo-900 animate-pulse border-purple-400" : "from-slate-800 to-slate-900 border-slate-700"} border text-slate-200 text-sm font-semibold rounded-full transition-all duration-300 shadow-md hover:from-slate-700 hover:to-slate-800`}>
@@ -536,566 +605,237 @@ export default function Home() {
             initial={{ opacity: 0, y: -80, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: -40 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className="fixed top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-[100] w-[95%] sm:w-[90%] max-w-4xl"
-            data-testid="active-alert-banner"
           >
-            <div className={`relative bg-gradient-to-br backdrop-blur-2xl border rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden ${isTargetedCurrently ? 'from-red-600/95 via-red-800/95 to-slate-900/95 border-red-500/50 shadow-[0_15px_60px_-10px_rgba(239,68,68,0.5)]' : 'from-slate-800/95 via-slate-900/95 to-slate-950/95 border-slate-700/50 shadow-black'}`}>
-
-              {/* Visual pulse background */}
-              <div className={`absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] via-transparent to-transparent animate-pulse ${isTargetedCurrently ? 'from-red-500/20' : 'from-slate-500/10'}`} />
-              <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-transparent to-transparent opacity-50 ${isTargetedCurrently ? 'via-red-300' : 'via-slate-500'}`} />
-
+            <div className={`relative bg-gradient-to-br backdrop-blur-2xl border rounded-2xl sm:rounded-3xl shadow-2xl overflow-hidden ${activeAlerts.length > 0 ? 'from-red-600/95 via-red-800/95 to-slate-900/95 border-red-500/50 shadow-[0_15px_60px_-10px_rgba(239,68,68,0.5)]' : 'from-slate-800/95 via-slate-900/95 to-slate-950/95 border-slate-700/50'}`}>
               <button
                 onClick={() => setIsBannerDismissed(true)}
-                className="absolute top-4 left-4 z-50 p-2 bg-black/30 hover:bg-black/50 rounded-full text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/30 hover:scale-105"
-                title="הסתר התרעה"
+                className="absolute top-4 left-4 z-50 p-2 bg-black/30 rounded-full text-white/70 hover:text-white transition-all border border-white/10"
               >
                 <X size={18} />
               </button>
-
-              <div className="bg-red-950/80 border-b border-red-500/50 w-full py-3 sm:py-3.5 px-4 sm:px-6 flex justify-between items-center text-red-100 text-xs sm:text-sm shadow-inner relative overflow-hidden">
-                <div className="absolute inset-0 opacity-20 pointer-events-none" style={{ backgroundImage: "repeating-linear-gradient(45deg, #000 0, #000 10px, #ef4444 10px, #ef4444 20px)" }} />
-
-                <div className="flex items-center gap-2.5 z-10 pr-10 sm:pr-12">
-                  <span className="flex items-center justify-center bg-red-600 text-white p-1 rounded-md shadow-[0_0_12px_rgba(239,68,68,0.8)]">
-                    <ShieldAlert size={14} className="animate-pulse" />
-                  </span>
-                  <span className="font-black tracking-[0.05em] sm:tracking-[0.1em] text-red-50 uppercase drop-shadow-[0_0_8px_rgba(255,255,255,0.3)]">זיהוי שיגור מאומת</span>
+              <div className="bg-red-950/80 border-b border-red-500/50 w-full py-3 px-6 flex justify-between items-center text-red-100 text-xs shadow-inner">
+                <div className="flex items-center gap-2.5">
+                  <ShieldAlert size={14} className="animate-pulse text-red-400" />
+                  <span className="font-black uppercase tracking-widest">{isLTR ? "CODE RED: MISSILE THREAT DETECTED" : "צבע אדום: זיהוי שיגור מאומת"}</span>
                 </div>
-
-                <div className="flex items-center gap-2 bg-red-500/20 px-2 py-0.5 rounded border border-red-500/40 z-10 backdrop-blur-sm">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-red-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-red-500"></span>
-                  </span>
-                  <span className="animate-pulse text-red-100 font-mono tracking-wider font-bold">LIVE</span>
-                </div>
+                <span className="animate-pulse text-red-500 font-bold">LIVE</span>
               </div>
-
-              <div className={`p-6 sm:p-10 flex flex-col items-center justify-center relative ${!isTargetedCurrently ? 'opacity-80' : ''}`}>
-                <div className="flex items-center justify-center gap-3 sm:gap-4 mb-3 sm:mb-4">
-                  <AlertTriangle size={36} className={`white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block ${!isTargetedCurrently ? 'text-orange-400' : 'text-white'}`} />
-                  <h2 className={`text-4xl sm:text-5xl md:text-6xl font-black tracking-tight drop-shadow-[0_4px_4px_rgba(0,0,0,0.5)] ${!isTargetedCurrently ? 'text-orange-100' : 'text-white'}`}>
-                    {isTargetedCurrently ? (isLTR ? "CODE RED" : "צבע אדום") : (isLTR ? "REGIONAL ALERT" : "התרעה מרחבית")}
-                  </h2>
-                  <AlertTriangle size={36} className={`white drop-shadow-[0_0_15px_rgba(255,255,255,0.8)] animate-bounce hidden sm:block ${!isTargetedCurrently ? 'text-orange-400' : 'text-white'}`} />
+              <div className="p-10 flex flex-col items-center">
+                <h2 className="text-5xl sm:text-7xl font-black text-white mb-4 drop-shadow-xl text-center">
+                  {isLTR ? "CODE RED" : "צבע אדום"}
+                </h2>
+                <div className="text-xl sm:text-2xl font-bold text-white/90 text-center mb-6 leading-tight max-w-2xl">
+                  {activeAlerts.join(' , ')}
                 </div>
-                {!isTargetedCurrently && (
-                  <div className="bg-orange-500/20 text-orange-200 text-[10px] font-bold px-3 py-1 rounded-full border border-orange-500/30 mb-4 animate-pulse uppercase tracking-[0.1em]">
-                    {isLTR ? "Target outside your monitored zones" : "מטרה מחוץ לאזורי המעקב שלך"}
+                {timeToCover !== null && (
+                  <div className="bg-black/40 px-8 py-3 rounded-2xl border border-red-500/30">
+                    <span className={`text-6xl font-black font-mono tracking-widest ${timeToCover <= 15 ? 'text-red-500' : 'text-orange-400'}`}>00:{timeToCover.toString().padStart(2, '0')}</span>
+                    <div className="text-[10px] text-red-200/50 uppercase text-center mt-1">TTC ESTIMATE</div>
                   </div>
                 )}
-                <div className={`w-16 h-1 rounded-full mb-4 sm:mb-6 ${isTargetedCurrently ? 'bg-red-400/50' : 'bg-orange-400/30'}`} />
-
-                <div className="flex flex-col items-center">
-                  <span className={`font-black text-sm sm:text-lg tracking-wide mb-1 sm:mb-2 text-center break-words max-w-[90vw] ${isTargetedCurrently ? 'text-white' : 'text-orange-100'}`}>
-                    {Array.isArray(activeAlerts) ? activeAlerts.join(' , ') : activeAlerts}
-                  </span>
-
-                  {timeToCover !== null && (
-                    <div className="mt-2 text-center bg-black/40 px-6 py-2 rounded-xl border border-red-500/20 shadow-inner">
-                      <span className={`text-4xl sm:text-5xl font-black font-mono tracking-widest ${timeToCover <= 15 ? 'text-red-500 drop-shadow-[0_0_10px_rgba(239,68,68,0.8)]' : typeof timeToCover === 'number' && timeToCover > 15 && timeToCover <= 45 ? 'text-orange-400' : 'text-slate-200'}`}>00:{timeToCover.toString().padStart(2, '0')}</span>
-                      <div className="text-[10px] text-red-200/50 uppercase tracking-widest mt-1">{isLTR ? "Time To Cover (Est)" : "זמן מוערך לכניסה למרחב (TTC)"}</div>
-                    </div>
-                  )}
-                </div>
-
-                <div className="mt-6 sm:mt-8 text-red-200 text-xs sm:text-sm font-medium tracking-wide flex items-center gap-2 bg-red-950/50 px-4 py-2 rounded-full border border-red-800/50">
-                  היכנסו מיד למרחב מוגן ושהו בו 10 דקות
-                </div>
-              </div>
-            </div>
-          </motion.div>
-        )}
-
-        {/* --- ALL CLEAR BANNER (Shows when safe to exit) --- */}
-        {showAllClear && activeAlerts.length === 0 && (
-          <motion.div
-            initial={{ opacity: 0, y: -60, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, scale: 0.9, y: -30 }}
-            transition={{ type: "spring", stiffness: 250, damping: 25 }}
-            className="fixed top-20 sm:top-24 left-1/2 transform -translate-x-1/2 z-[100] w-[95%] sm:w-[90%] max-w-4xl"
-          >
-            <div className="relative bg-gradient-to-br from-emerald-600/95 via-emerald-800/95 to-slate-900/95 backdrop-blur-2xl border border-emerald-400/50 rounded-2xl sm:rounded-3xl shadow-[0_15px_50px_-10px_rgba(16,185,129,0.4)] overflow-hidden">
-
-              {/* Visual pulse background */}
-              <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-emerald-400/20 via-transparent to-transparent opacity-60" />
-
-              <button
-                onClick={() => setShowAllClear(false)}
-                className="absolute top-4 left-4 z-50 p-2 bg-black/20 hover:bg-black/40 rounded-full text-white/70 hover:text-white transition-all border border-white/10 hover:border-white/30 hover:scale-105"
-                title="סגור הודעה"
-              >
-                <X size={18} />
-              </button>
-
-              <div className="bg-black/40 border-b border-emerald-500/30 w-full py-2.5 px-5 sm:px-6 flex justify-between items-center text-emerald-200 text-xs sm:text-sm font-bold tracking-[0.15em] pl-14 shadow-inner">
-                <div className="flex items-center gap-2">
-                  <CheckCircle size={14} className="text-emerald-400" />
-                  <span>הסרת איום אירוע</span>
-                </div>
-                <div className="flex items-center gap-2 bg-emerald-500/20 px-2 py-0.5 rounded border border-emerald-500/40">
-                  <span className="text-emerald-100 font-mono tracking-wider">SAFE</span>
-                </div>
-              </div>
-
-              <div className="p-6 sm:p-10 flex flex-col items-center justify-center relative">
-                <div className="flex flex-col items-center gap-2 sm:gap-4 mb-2">
-                  <div className="p-3 sm:p-4 bg-emerald-500/20 rounded-full border border-emerald-400/30 mb-2">
-                    <CheckCircle className="text-emerald-300 drop-shadow-md" size={42} />
-                  </div>
-                  <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-white text-center tracking-tight drop-shadow-md pb-1 leading-tight max-w-[95%]">
-                    {systemMessage || "ניתן לצאת מהמרחב המוגן"}
-                  </h2>
-                </div>
-
-                <div className="w-16 h-1 bg-emerald-400/50 rounded-full mb-4 sm:mb-6 mt-2" />
-
-                <p className="text-base sm:text-lg text-emerald-50 font-medium max-w-2xl text-center leading-relaxed bg-black/20 px-5 sm:px-8 py-3 sm:py-4 rounded-xl border border-emerald-400/10">
-                  {systemMessage ? "יש להישמע להנחיות פיקוד העורף לגבי השהייה במרחב." : "חלפו 10 דקות מקבלת ההתרעה ללא איומים נוספים במרחב. יש להישמע להנחיות פיקוד העורף."}
-                </p>
               </div>
             </div>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <main className="relative z-10 p-2 sm:p-6 w-full max-w-full 2xl:px-8 mt-4 sm:mt-6 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 lg:gap-8 outline-none flex-1">
-
-        {/* RIGHT SIDEBAR (Focus & Stats) - 4 Cols */}
-        <aside className="lg:col-span-3 flex flex-col gap-4 sm:gap-6 order-3 lg:order-1">
-
-          {/* MOBILE SYNC QR (IMPROVED STABILITY) */}
-          <div className="glass-card rounded-2xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center group">
-            <div className="w-10 h-10 bg-indigo-500/10 rounded-full flex items-center justify-center text-indigo-400 mb-2 group-hover:shadow-[0_0_15px_rgba(99,102,241,0.5)] transition-all">
-              <Globe size={24} className="animate-pulse" />
-            </div>
-            <h3 className="text-white font-black text-sm tracking-wide">חמ&quot;ל נייד (Sync QR)</h3>
-            <p className="text-[10px] text-slate-500 leading-tight font-medium">סרוק לסנכרון הגדרות המכ&quot;ם לטלפון שלך לצפייה בזמן אמת בממ&quot;ד.</p>
-            <div className="p-3 bg-white rounded-2xl shadow-[0_0_20px_rgba(255,255,255,0.05)] border border-white/10 group-hover:scale-105 transition-all duration-500 relative overflow-hidden">
-              {qrUrl ? (
-                <img
-                  src={qrUrl}
-                  alt="Sync QR"
-                  className="w-24 h-24 grayscale-[0.2] hover:grayscale-0 transition-all opacity-90"
-                  onError={(e) => {
-                    // Fallback to local data if external API fails
-                    (e.target as HTMLImageElement).src = `https://chart.googleapis.com/chart?cht=qr&chs=150x150&chl=${encodeURIComponent(typeof window !== 'undefined' ? window.location.href : '')}`;
-                  }}
-                />
-              ) : (
-                <div className="w-24 h-24 flex items-center justify-center bg-slate-100 rounded-lg animate-pulse">
-                  <div className="w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+      <main className={`relative z-10 p-4 sm:p-6 w-full max-w-full 2xl:px-8 mt-4 sm:mt-6 outline-none flex-1 flex flex-col`}>
+        {isCommandMode ? (
+          /* --- COMMAND MODE (QUAD-VIEW) --- */
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 flex-1">
+            <section className="flex flex-col gap-4 min-h-[500px]">
+              <div className="glass-panel flex-1 rounded-3xl overflow-hidden relative border border-white/5 shadow-2xl">
+                <div className="absolute top-4 left-4 z-50 flex flex-col gap-2">
+                  <button onClick={findNearestShelter} className="bg-green-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-all border border-white/20"><Crosshair size={20} /></button>
+                  <div className="bg-black/60 backdrop-blur p-2 rounded-lg text-[8px] font-mono text-cyan-400 border border-white/10 uppercase tracking-widest">Target Acquisition: ON</div>
                 </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-tr from-indigo-500/5 to-transparent pointer-events-none"></div>
-            </div>
-            <div className="text-[8px] text-slate-500 uppercase tracking-widest font-mono mt-1 opacity-50">Secure Command Relay Protocol</div>
-          </div>
+                <LiveMap activeCities={activeAlerts} history={history} userCoords={userCoords} reports={reports} shelterRoute={nearestShelterNode} />
+              </div>
+              <div className="bg-gradient-to-r from-blue-900/40 to-indigo-900/40 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4">
+                <BrainCircuit className="text-indigo-400 shrink-0" size={24} />
+                <p className="text-white text-xs font-medium leading-relaxed">{aiInsight}</p>
+              </div>
+            </section>
 
-          {/* LIVE COMBAT FEED (Historic Log) */}
-          <div className="glass-card rounded-2xl flex-1 flex flex-col p-6 h-[400px] order-1 lg:order-none">
-            <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3 h-10 shrink-0">
-              <MapIcon className="text-orange-400" size={20} />
-              <h2 className="text-lg font-bold text-white">יומן יירוטים ומטרות (Live Feed)</h2>
-            </div>
-
-            <div className="flex-1 overflow-y-auto px-1">
-              {history.length > 0 ? (
-                <ul className="space-y-4 pb-12">
-                  <AnimatePresence>
-                    {history.map((alert, index) => {
-                      const contentString = Array.isArray(alert.cities) ? alert.cities.join(' , ') : (alert.cities || "");
-                      const titleStr = alert.title || "";
-                      const fullString = contentString + titleStr;
-
-                      const isInstruction = fullString.includes("ניתן לצאת") || fullString.includes("הנחיות");
-
-                      return (
-                        <motion.li
-                          key={alert.id || index}
-                          initial={{ opacity: 0, x: 20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          className={`bg-slate-800/40 rounded-xl p-4 border-r-4 flex flex-col md:flex-row md:items-center justify-between gap-4 hover:bg-slate-800/80 transition shadow-md ${isInstruction ? 'border-emerald-500' : 'border-red-500'}`}
-                        >
-                          <div className="flex flex-col sm:flex-row w-[65%] sm:w-3/4">
-                            <div className="flex flex-col gap-1 w-full">
-                              <div className="flex items-center gap-2">
-                                <span className={`text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded border shrink-0 ${isInstruction ? 'bg-emerald-900/40 text-emerald-400 border-emerald-800' : 'bg-red-900/30 text-red-400 border-red-800'}`}>
-                                  {isInstruction ? 'הודעת מערכת' : 'התרעה'}
-                                </span>
-                                <span className={`font-bold text-sm sm:text-base pr-1 ${isInstruction ? 'text-emerald-300' : 'text-slate-200'}`}>
-                                  {titleStr || (isInstruction ? "הנחיית התגוננות" : "התרעה מאומתת")}
-                                </span>
-                              </div>
-                              <span className="text-slate-400 text-xs sm:text-sm leading-relaxed" style={{ wordBreak: 'break-word' }}>
-                                {contentString}
-                              </span>
-                            </div>
-                          </div>
-                          <div className="text-slate-500 text-[10px] sm:text-xs font-mono bg-[#0f172a] px-2 sm:px-3 py-1 sm:py-1.5 rounded-lg border border-slate-700/50 shadow-inner text-center shrink-0 w-max sm:self-auto self-start pr-1 pl-1">
-                            {new Date(alert.timestamp).toLocaleTimeString('he-IL', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}  <br className="hidden sm:block" /> <span className="opacity-50 text-[9px] sm:text-[10px] pl-1 pr-1">{new Date(alert.timestamp).toLocaleDateString('he-IL')}</span>
-                          </div>
-                        </motion.li>
-                      );
-                    })}
-                  </AnimatePresence>
-                </ul>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-600 space-y-3">
-                  <ShieldAlert size={48} className="opacity-20" />
-                  <p>המרחב האווירי נקי. מנטר כל 2 שניות...</p>
+            <section className="flex flex-col gap-6">
+              <div className="glass-panel rounded-3xl p-6 bg-slate-900/60 border border-white/5 h-[320px] flex flex-col">
+                <div className="flex items-center justify-between mb-4 border-b border-slate-700 pb-3">
+                  <h3 className="text-white font-black text-xs tracking-[0.2em] uppercase flex items-center gap-2"><MonitorPlay className="text-cyan-400" size={16} /> Field Intel</h3>
+                  <div className="text-[10px] text-slate-500 font-mono">SECTOR ANALYTICS</div>
                 </div>
-              )}
-            </div>
-          </div>
-        </aside>
-
-        {/* CENTER & LEFT CONTENT (Map & Live Feed) - 9 Cols */}
-        <section className="lg:col-span-9 flex flex-col gap-4 sm:gap-6 order-1 lg:order-2">
-
-          {/* AI ANALYST BANNER */}
-          <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-4 flex items-center gap-4 shadow-lg order-1 lg:order-none">
-            <div className="p-3 bg-indigo-500/20 rounded-xl shrink-0">
-              <BrainCircuit className="text-indigo-400 animate-pulse" size={24} />
-            </div>
-            <div>
-              <h3 className="text-indigo-300 text-xs font-bold mb-1 tracking-wider uppercase">{isLTR ? "Oref AI Analyst" : "פרשן טקטי AI"}</h3>
-              <p className="text-white text-sm sm:text-base font-medium">{aiInsight}</p>
-            </div>
-          </div>
-
-          {/* RADAR MAP INTERFACE */}
-          <div className="glass-card rounded-2xl overflow-hidden h-64 sm:h-96 relative group border-t-4 border-t-orange-500 shrink-0 order-2 lg:order-none">
-            <div className="absolute top-4 right-4 z-[999] bg-slate-900/80 backdrop-blur px-4 py-2 rounded-lg border border-slate-700 shadow-xl pointer-events-none min-w-[140px]">
-              <div className="flex items-center justify-between gap-4 mb-1">
-                <div className="flex items-center gap-2">
-                  <Activity className={activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-green-500"} size={14} />
-                  <span className="text-xs font-bold tracking-wider text-slate-200">{isLTR ? "Live Radar" : "מכ\"ם טיווח חי"}</span>
+                <div className="grid grid-cols-2 gap-3 mb-6">
+                  <button onClick={() => reportImpact("Explosion")} className="bg-red-500/10 hover:bg-red-500/20 border border-red-500/30 p-3 rounded-2xl text-red-500 font-black text-xs transition-all uppercase">{isLTR ? "Log Impact" : "דווח נפילה"}</button>
+                  <button onClick={() => reportImpact("Interception")} className="bg-cyan-500/10 hover:bg-cyan-500/20 border border-cyan-500/30 p-3 rounded-2xl text-cyan-500 font-black text-xs transition-all uppercase">{isLTR ? "Log Intercept" : "דווח יירוט"}</button>
                 </div>
-                <div className="flex items-center gap-1.5">
-                  <span className={`w-1.5 h-1.5 rounded-full ${syncStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : syncStatus === 'fallback' ? 'bg-orange-500' : 'bg-blue-500 animate-pulse'}`}></span>
-                  <span className="text-[9px] font-bold text-slate-400 opacity-80 uppercase tracking-tighter">
-                    {syncStatus === 'success' ? (isLTR ? "Sync" : "מסונכרן") : syncStatus === 'fallback' ? (isLTR ? "OSINT" : "גיבוי") : "..."}
-                  </span>
+                <div className="flex-1 overflow-y-auto space-y-2 custom-scrollbar">
+                  {reports.map(r => (
+                    <div key={r.id} className="bg-white/5 border border-white/10 rounded-xl p-3 flex justify-between items-center animate-in slide-in-from-right duration-300">
+                      <span className={`text-[10px] font-bold ${r.type === 'Explosion' ? 'text-red-400' : 'text-cyan-400'} uppercase`}>{r.type}</span>
+                      <span className="text-[9px] font-mono text-slate-500">{new Date(r.timestamp).toLocaleTimeString()}</span>
+                    </div>
+                  ))}
+                  {reports.length === 0 && <div className="text-center text-slate-700 text-[10px] mt-10 uppercase tracking-widest font-bold">Waiting for Decentralized Intel...</div>}
                 </div>
               </div>
-              <div className="text-[10px] text-slate-500 font-mono flex justify-between">
-                <span>{isLTR ? "Last update:" : "עדכון:"}</span>
-                <span>{lastUpdateTime}</span>
-              </div>
-              {isMuted && activeAlerts.length > 0 && (
-                <div className="mt-2 text-[9px] font-black text-red-500 animate-bounce text-center uppercase border-t border-red-500/20 pt-1">
-                  {isLTR ? "Siren Muted!" : "סירנה מושתקת!"}
+
+              <div className="glass-panel flex-1 rounded-3xl p-6 bg-slate-900/60 border border-white/5 overflow-hidden flex flex-col min-h-[300px]">
+                <h3 className="text-white font-black text-xs tracking-[0.2em] uppercase mb-4 border-b border-slate-700 pb-3">{isLTR ? "Tactical Log" : "יומן מבצעי"}</h3>
+                <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar">
+                  {history.slice(0, 50).map((h, i) => (
+                    <div key={i} className={`p-3 rounded-xl border-r-4 ${activeAlerts.includes(Array.isArray(h.cities) ? h.cities[0] : (h.cities as string)) ? 'bg-red-900/20 border-red-500 animate-pulse' : 'bg-slate-800/40 border-slate-700'}`}>
+                      <div className="flex justify-between items-center mb-1">
+                        <span className="text-[9px] font-mono text-slate-500 uppercase">{new Date(h.timestamp).toLocaleTimeString()}</span>
+                        <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
+                      </div>
+                      <div className="text-white text-xs font-bold">{Array.isArray(h.cities) ? h.cities.join(' , ') : h.cities}</div>
+                    </div>
+                  ))}
                 </div>
-              )}
-            </div>
-
-            <button
-              onClick={() => setIsHeatmap(!isHeatmap)}
-              className={`absolute top-4 left-4 z-[999] px-3 py-2 rounded-lg border text-xs font-bold transition-all shadow-lg flex items-center gap-2
-               ${isHeatmap ? 'bg-orange-600/90 border-orange-400 text-white' : 'bg-slate-800/80 border-slate-600 text-slate-300 hover:bg-slate-700'}`}>
-              <Layers size={14} />
-              {isHeatmap ? (isLTR ? "Heatmap Active" : "מפת חום פעילה") : (isLTR ? "Show Heatmap" : "הצג מפת חום")}
-            </button>
-
-            <LiveMap activeCities={activeAlerts} isHeatmap={isHeatmap} history={history} userCoords={userCoords} />
-
-            {/* Scanline overlay for aesthetic */}
-            <div className="absolute inset-0 z-[400] pointer-events-none opacity-[0.05] bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(255,255,255,0.2)_50%)] bg-[length:100%_4px]" />
-          </div>
-
-          {/* TARGET FOCUS PANEL */}
-          <div className="glass-card rounded-2xl p-6 order-4 lg:order-none">
-            <div className="flex items-center gap-3 mb-4 border-b border-slate-700 pb-3">
-              <MapPin className="text-blue-400" size={20} />
-              <h2 className="text-lg font-bold text-white">{isLTR ? "Multi-Zone Alert Monitoring" : "מעקב התראות רב-זירתי (Multi-Zone)"}</h2>
-            </div>
-            <p className="text-xs text-slate-400 mb-4 leading-relaxed">
-              {isLTR ? "Enter multiple cities separated by commas (e.g. Haifa, Tel Aviv) to monitor specific zones simultaneously and prevent nationwide panic hysteresis." : "הזן מספר יישובים מופרדים בפסיקים (למשל: תל אביב, אשדוד, חיפה) כדי לעקוב אחר כמה אזורים במקביל. הסירנה תופעל רק שם."}
-            </p>
-            <div className="relative flex items-center">
-              <div className="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
-                <Layers size={16} className="text-slate-500" />
               </div>
-              <input
-                type="text"
-                value={filterCity}
-                onChange={(e) => setFilterCity(e.target.value)}
-                className="w-full bg-slate-800/50 border border-slate-600 text-white text-sm rounded-lg focus:ring-blue-500 focus:border-blue-500 block pr-10 pl-12 p-3 font-mono"
-                placeholder="לדוגמה: תל אביב, חיפה, רמת גן"
-              />
-              <button
-                onClick={toggleGPS}
-                className={`absolute inset-y-0 left-0 pl-3 flex items-center justify-center cursor-pointer transition-colors ${isGPSLocked ? 'text-blue-400' : 'text-slate-500 hover:text-slate-300'}`}
-                title={isLTR ? "Lock nearest location via GPS" : "נעילת GPS לחיפוש יישוב קרוב"}
-              >
-                {isGPSLocked && <span className="absolute animate-ping h-8 w-8 rounded-full bg-blue-400 opacity-20"></span>}
-                <Crosshair size={20} className={isGPSLocked ? 'animate-pulse' : ''} />
-              </button>
-            </div>
+            </section>
           </div>
+        ) : (
+          /* --- STANDARD VIEW (REFINED) --- */
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1">
+            <aside className="lg:col-span-3 flex flex-col gap-6 order-3 lg:order-1">
+              <div className="glass-panel rounded-3xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center">
+                <div className="p-3 bg-indigo-500/10 rounded-full text-indigo-400 animate-pulse"><Globe size={24} /></div>
+                <h3 className="text-white font-black text-xs uppercase tracking-widest">Command Relay QR</h3>
+                <div className="p-2 bg-white rounded-2xl shadow-xl">{qrUrl && <img src={qrUrl} alt="QR" className="w-24 h-24" />}</div>
+                <div className="text-[8px] text-slate-600 font-mono uppercase tracking-[0.2em] mt-1">Status: Encrypted Point-to-Point</div>
+              </div>
 
-          {/* STATS OVERVIEW - REDESIGNED */}
-          <div className="glass-card rounded-2xl p-0 overflow-hidden relative group">
-            <div className="absolute top-0 w-full h-1 bg-gradient-to-r from-transparent via-purple-500 to-transparent opacity-50"></div>
-            <div className="p-6">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex gap-3 items-center text-white">
-                  <div className="p-2 bg-purple-500/10 rounded-lg border border-purple-500/20">
-                    <BarChart3 size={20} className="text-purple-400" />
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black tracking-wide">מדדים טקטיים</h2>
-                    <p className="text-[10px] text-slate-400 font-mono mt-0.5">ניתוח נתוני מערכת הליבה</p>
+              <div className="glass-panel rounded-3xl flex-1 flex flex-col p-6 h-[500px] border border-white/5 shadow-xl">
+                <div className="flex items-center gap-3 mb-6 border-b border-slate-700 pb-3">
+                  <History className="text-orange-400" size={18} />
+                  <h2 className="text-sm font-black text-white uppercase tracking-widest">{isLTR ? "Live Feed" : "יומן יירוטים חיים"}</h2>
+                </div>
+                <div className="flex-1 overflow-y-auto space-y-3 custom-scrollbar pr-1">
+                  {history.map((h, i) => (
+                    <div key={i} className={`bg-slate-800/40 rounded-xl p-4 border-r-4 ${activeAlerts.includes(Array.isArray(h.cities) ? h.cities[0] : (h.cities as string)) ? 'border-red-500 animate-pulse' : 'border-slate-700'}`}>
+                      <div className="text-[10px] text-slate-500 mb-1 font-mono uppercase">{new Date(h.timestamp).toLocaleTimeString()}</div>
+                      <div className="text-slate-100 text-xs font-bold leading-tight line-clamp-2">{Array.isArray(h.cities) ? h.cities.join(' , ') : h.cities}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </aside>
+
+            <section className="lg:col-span-9 flex flex-col gap-6 order-1 lg:order-2">
+              <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-5 flex items-center gap-5 shadow-2xl">
+                <div className="p-3 bg-indigo-500/20 rounded-xl shadow-lg ring-1 ring-indigo-500/40"><BrainCircuit className="text-indigo-400 animate-pulse" size={28} /></div>
+                <div className="flex-1">
+                  <h4 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em] mb-1">Cortex Strategic Link v4.2</h4>
+                  <p className="text-white text-sm sm:text-base font-medium leading-relaxed">{aiInsight}</p>
+                </div>
+              </div>
+
+              <div className="glass-panel rounded-[2rem] overflow-hidden h-[500px] relative border-t-4 border-t-orange-500 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.6)] group">
+                <div className="absolute top-4 right-4 z-50 bg-black/80 backdrop-blur-md px-4 py-2 rounded-xl border border-white/10 shadow-2xl transition-all group-hover:bg-slate-900 flex flex-col gap-1">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-2 h-2 rounded-full ${syncStatus === 'success' ? 'bg-green-500 shadow-[0_0_8px_green]' : 'bg-red-500 animate-ping'}`} />
+                    <span className="text-[10px] font-black text-white/80 uppercase tracking-widest">{isLTR ? "Live Radar Link" : "מכ\"ם טיווח פעיל"}</span>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 px-3 py-1 bg-slate-800/80 border border-slate-700 rounded-full shadow-[0_0_10px_rgba(0,0,0,0.5)]">
-                  <span className="relative flex h-2 w-2">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-2 w-2 bg-green-500"></span>
-                  </span>
-                  <span className="text-[10px] font-bold text-slate-300">LIVE</span>
+                <div className="absolute top-4 left-4 z-50">
+                  <button onClick={findNearestShelter} className="bg-green-600 text-white p-3 rounded-full shadow-lg hover:scale-110 transition-all border border-white/20"><Crosshair size={22} /></button>
                 </div>
+                <LiveMap activeCities={activeAlerts} history={history} userCoords={userCoords} reports={reports} shelterRoute={nearestShelterNode} />
+                <div className="absolute inset-0 z-[10] pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(255,255,255,0.2)_50%)] bg-[length:100%_4px]" />
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4 mb-6">
-                <div className="relative bg-gradient-to-br from-slate-800 to-slate-900 px-5 py-4 sm:px-6 sm:py-5 rounded-xl border border-slate-700 shadow-inner overflow-hidden flex flex-col justify-center min-h-[110px] group">
-                  <div className="absolute -right-6 -top-6 w-24 h-24 bg-blue-500/10 rounded-full blur-2xl group-hover:bg-blue-500/20 transition-colors duration-500" />
-
-                  <div className="flex items-center justify-between mb-1.5 w-full">
-                    <span className="text-slate-400 text-[11px] sm:text-xs font-semibold tracking-wide">
-                      סך מערכות שהופעלו <span className="hidden sm:inline">(היסטורי)</span>
-                    </span>
-                    <span className="text-[10px] text-emerald-400 flex items-center gap-1 bg-emerald-400/10 px-2 py-0.5 rounded-full border border-emerald-400/20 shadow-sm font-medium">
-                      <Activity size={10} /> +1.2%
-                    </span>
-                  </div>
-
-                  {/* Dynamic Scaling for large numbers */}
-                  <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-transparent bg-clip-text bg-gradient-to-br from-white via-slate-200 to-slate-500 tracking-tight py-1" style={{ wordBreak: 'break-word', overflowWrap: 'break-word' }}>
-                    {Number(history.length + 314482).toLocaleString('he-IL')}
-                  </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
+                <div className="lg:col-span-2 glass-panel rounded-3xl p-6 bg-slate-900/40 border border-white/5 shadow-xl">
+                  <h3 className="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Activity size={16} className="text-amber-500" /> Launch Intensity Analytics</h3>
+                  <div className="h-64 h-full"><StatsChart history={history} /></div>
                 </div>
-
-                <div className={`relative p-4 sm:p-5 flex flex-col justify-center min-h-[110px] rounded-xl border overflow-hidden transition-all duration-500 ${activeAlerts.length > 0 ? 'bg-gradient-to-br from-red-950/90 to-slate-900 border-red-500/60 shadow-[inset_0_0_30px_rgba(239,68,68,0.25)]' : 'bg-gradient-to-br from-slate-800 to-slate-900 border-slate-700 shadow-inner'}`}>
-                  {activeAlerts.length > 0 && <div className="absolute inset-0 bg-red-500/10 animate-pulse"></div>}
-                  <div className={`absolute -left-4 -bottom-4 w-16 h-16 rounded-full blur-xl transition-colors duration-500 ${activeAlerts.length > 0 ? 'bg-red-500/30' : 'bg-slate-700/30'}`}></div>
-                  <div className={`text-[10px] sm:text-[11px] mb-1 font-bold tracking-wide z-10 relative ${activeAlerts.length > 0 ? 'text-red-300' : 'text-slate-400'}`}>איומים גלויים כעת</div>
-
-                  <div className={`text-4xl sm:text-5xl font-black z-10 relative transition-all duration-500 ${activeAlerts.length > 0 ? 'text-red-500 drop-shadow-[0_0_15px_rgba(239,68,68,0.9)] scale-110 origin-right' : 'text-slate-500'}`}>
-                    {activeAlerts.length}
-                  </div>
-
-                  <div className={`mt-2 text-[9px] sm:text-[10px] flex items-center gap-1 w-fit px-1.5 py-0.5 rounded border z-10 relative shadow-sm transition-colors duration-500 ${activeAlerts.length > 0 ? 'text-red-200 bg-red-600/30 border-red-500/50' : 'text-slate-400 bg-slate-800/80 border-slate-600'}`}>
-                    <AlertTriangle size={10} className={activeAlerts.length > 0 ? 'animate-bounce' : ''} /> {activeAlerts.length > 0 ? 'הערכות למיירטים' : 'יירוטים בהמתנה'}
-                  </div>
+                <div className="glass-panel rounded-3xl p-8 bg-slate-900/60 border border-white/5 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
+                  <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500/10 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+                  <Zap size={48} className="text-cyan-400 mb-6 group-hover:scale-110 transition-transform duration-500" />
+                  <h4 className="text-white font-black uppercase tracking-widest mb-3">Neural Prediction</h4>
+                  <p className="text-slate-400 text-xs mb-8 leading-relaxed max-w-[200px]">Advanced AI models calculating kinetic trajectory vectors for proactive interception strategies.</p>
+                  <button onClick={generateStrategicReport} className="px-8 py-3 bg-white/5 hover:bg-white/10 border border-white/20 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all shadow-lg active:scale-95">Initiate SITREP</button>
                 </div>
               </div>
-
-              <div className="flex items-center justify-between mb-3 border-t border-slate-800 pt-5">
-                <div className="flex items-center gap-2">
-                  <div className="w-1 h-3 bg-purple-500 rounded-full"></div>
-                  <div className="text-xs text-white font-bold tracking-wider">עצימות שיגורים ארצית</div>
-                </div>
-                <div className="text-[10px] text-slate-500 font-mono">ממוצע שעות (H/A)</div>
-              </div>
-              <div className="bg-[#0f172a]/60 rounded-xl p-3 border border-slate-800/80 shadow-inner">
-                <StatsChart history={history} />
-              </div>
-            </div>
+            </section>
           </div>
-
-        </section>
+        )}
       </main>
-
-      {/* --- ANALYTICS MODAL --- */}
-      <AnimatePresence>
-        {showAnalyticsModal && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[99999] bg-black/90 backdrop-blur-md flex items-center justify-center p-2 sm:p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 30, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 30, opacity: 0 }}
-              transition={{ type: "spring", stiffness: 300, damping: 25 }}
-              className="bg-[#020617] border border-blue-500/30 w-full max-w-6xl h-[85vh] sm:h-[90vh] rounded-2xl shadow-[0_0_50px_rgba(59,130,246,0.15)] overflow-hidden flex flex-col relative"
-            >
-              {/* Scanline overlay for modal */}
-              <div className="absolute inset-0 pointer-events-none opacity-[0.03] bg-[linear-gradient(rgba(0,0,0,0)_50%,rgba(59,130,246,0.4)_50%)] bg-[length:100%_4px] z-0" />
-
-              <div className="p-4 sm:p-6 border-b border-blue-900/50 flex justify-between items-center bg-slate-900/80 backdrop-blur-md relative z-10 shadow-md">
-                <div className="flex items-center gap-4">
-                  <div className="p-2 sm:p-3 bg-blue-500/20 rounded-xl text-blue-400 border border-blue-500/40 relative">
-                    <div className="absolute -inset-1 bg-blue-500/20 blur rounded-xl animate-pulse" />
-                    <LineChart size={24} className="relative z-10" />
-                  </div>
-                  <div>
-                    <h2 className="text-xl sm:text-2xl font-black text-white tracking-wider uppercase">
-                      {isLTR ? "Deep Tactical Analytics" : "מרכז השליטה והניתוח הטקטי"}
-                    </h2>
-                    <p className="text-blue-400/70 text-xs font-mono mt-1 tracking-widest uppercase">{isLTR ? "SYSTEM OREF OVERRIDE V2.0" : "רשת נתונים מאובטחת - סייבר הארי"}</p>
-                  </div>
-                </div>
-                <button onClick={() => setShowAnalyticsModal(false)} className="p-2.5 bg-slate-800 border border-slate-700 hover:border-red-500/50 hover:bg-red-500/10 rounded-full text-slate-300 hover:text-red-400 transition-all z-10">
-                  <X size={20} />
-                </button>
-              </div>
-
-              <div className="p-4 sm:p-8 overflow-y-auto flex-1 bg-gradient-to-b from-transparent to-blue-950/20 relative z-10 custom-scrollbar">
-
-                {/* TOP CARDS GRID */}
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-8">
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-t-2 border-t-blue-500 border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:bg-slate-800 transition-colors">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-blue-600/20 rounded-full blur-2xl group-hover:bg-blue-500/30 transition-all" />
-                    <h3 className="text-slate-400 text-xs sm:text-sm font-bold tracking-wider mb-2 uppercase">{isLTR ? "Total Launches Tracked" : "סך שיגורים השנה גיזרה ארצית"}</h3>
-                    <div className="flex items-end gap-2 mt-4">
-                      <p className="text-4xl sm:text-5xl font-black text-white tracking-tight">{Number(history.length + 314482).toLocaleString('he-IL')}</p>
-                      <span className="text-blue-400 text-xs font-mono mb-1.5 flex items-center gap-1"><Activity size={10} /> Live</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-t-2 border-t-emerald-500 border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:bg-slate-800 transition-colors">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-emerald-600/20 rounded-full blur-2xl group-hover:bg-emerald-500/30 transition-all" />
-                    <h3 className="text-slate-400 text-xs sm:text-sm font-bold tracking-wider mb-2 uppercase">{isLTR ? "Interception Success Rate" : "אחוזי יירוט מוצלחים משוערים"}</h3>
-                    <div className="flex items-end gap-2 mt-4">
-                      <p className="text-4xl sm:text-5xl font-black text-emerald-400 tracking-tight">92.4%</p>
-                      <span className="text-emerald-500 text-xs font-mono mb-1.5">+0.2%</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-t-2 border-t-orange-500 border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:bg-slate-800 transition-colors">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-orange-600/20 rounded-full blur-2xl group-hover:bg-orange-500/30 transition-all" />
-                    <h3 className="text-slate-400 text-xs sm:text-sm font-bold tracking-wider mb-2 uppercase">{isLTR ? "Current Active Threats" : "איומים פעילים באוויר הארץ"}</h3>
-                    <div className="flex items-end gap-2 mt-4">
-                      <p className={`text-4xl sm:text-5xl font-black tracking-tight ${activeAlerts.length > 0 ? "text-red-500 animate-pulse" : "text-slate-300"}`}>{activeAlerts.length}</p>
-                      <span className="text-orange-400 text-xs font-mono mb-1.5">Targets</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-gradient-to-br from-slate-900 to-slate-800 border-t-2 border-t-purple-500 border border-slate-700/50 rounded-2xl p-6 relative overflow-hidden group hover:bg-slate-800 transition-colors">
-                    <div className="absolute -right-4 -top-4 w-24 h-24 bg-purple-600/20 rounded-full blur-2xl group-hover:bg-purple-500/30 transition-all" />
-                    <h3 className="text-slate-400 text-xs sm:text-sm font-bold tracking-wider mb-2 uppercase">{isLTR ? "Data Synchronization" : "נפח סנכרון רשומות אחרון"}</h3>
-                    <div className="flex items-end gap-2 mt-4">
-                      <p className="text-4xl sm:text-5xl font-black text-purple-400 tracking-tight">{((Math.random() * (15 - 5)) + 5).toFixed(1)}<span className="text-lg">MB/s</span></p>
-                      <span className="text-purple-500 text-xs font-mono mb-1.5 font-bold">Encrypted</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* MAIN CHART AREA */}
-                <div className="glass-card rounded-2xl border border-slate-700/50 p-5 sm:p-8 bg-slate-900/40">
-                  <div className="flex items-center justify-between mb-6">
-                    <h3 className="text-white font-black text-lg sm:text-xl tracking-wide flex items-center gap-3">
-                      <div className="w-2 h-6 bg-blue-500 rounded-full"></div>
-                      {isLTR ? "Launch Intensity Trajectory Analysis" : "ניתוח מסלול עצימות אש בזמן אמת (Live)"}
-                    </h3>
-                    <div className="hidden sm:flex p-1 bg-slate-800 rounded-lg text-xs font-bold text-slate-400 border border-slate-700">
-                      <div className="px-3 py-1.5 bg-blue-500 border border-blue-400 text-white rounded-md cursor-pointer">Live 30 Days</div>
-                      <div className="px-3 py-1.5 hover:text-white cursor-pointer transition">1 Year</div>
-                    </div>
-                  </div>
-                  <div className="h-72 sm:h-96 w-full bg-[#020617]/50 rounded-xl border border-slate-800/80 p-2 sm:p-5 relative">
-                    {/* Fake grid lines background */}
-                    <div className="absolute inset-0 bg-[linear-gradient(rgba(255,255,255,0.03)_1px,transparent_1px),linear-gradient(90deg,rgba(255,255,255,0.03)_1px,transparent_1px)] bg-[size:40px_40px] pointer-events-none rounded-xl" />
-                    <StatsChart history={history} />
-                  </div>
-                </div>
-              </div>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
 
       {/* --- OSINT TICKER --- */}
       {osintUpdates.length > 0 && (
-        <div className="fixed bottom-0 w-full bg-slate-900 border-t border-slate-700/50 flex items-center h-8 sm:h-10 z-[60]">
-          <div className="bg-red-600 text-white text-[10px] sm:text-xs font-bold px-2 sm:px-4 h-full flex items-center uppercase whitespace-nowrap z-10 shrink-0 shadow-[4px_0_10px_rgba(0,0,0,0.5)]">
-            {isLTR ? "OSINT UPDATE" : "מבזקי חמ״ל"}
-          </div>
+        <div className="fixed bottom-0 w-full bg-[#020617] border-t border-white/5 flex items-center h-10 z-[60] shadow-[0_-10px_30px_rgba(0,0,0,0.5)]">
+          <div className="bg-red-600 text-white text-[10px] font-black px-6 h-full flex items-center uppercase tracking-widest z-10 shadow-2xl mr-4">{isLTR ? "OSINT FEED" : "מבזקי חמ\"ל"}</div>
           <div className="flex-1 overflow-hidden relative h-full flex items-center">
-            <div className="animate-marquee whitespace-nowrap text-[10px] sm:text-xs text-slate-300 font-mono flex items-center">
-              {osintUpdates.map((update, idx) => (
-                <React.Fragment key={`o1-${idx}`}>
-                  <span className="mx-4 text-slate-600">❖</span> <span>{update}</span>
-                </React.Fragment>
+            <div className="animate-marquee whitespace-nowrap text-[10px] text-slate-400 font-mono flex items-center">
+              {osintUpdates.map((u, i) => (
+                <React.Fragment key={i}><span className="mx-4 text-slate-700">❖</span><span>{u}</span></React.Fragment>
               ))}
-              {/* Duplicate for seamless looping */}
-              {osintUpdates.map((update, idx) => (
-                <React.Fragment key={`o2-${idx}`}>
-                  <span className="mx-4 text-slate-600">❖</span> <span>{update}</span>
-                </React.Fragment>
+              {osintUpdates.map((u, i) => (
+                <React.Fragment key={`copy-${i}`}><span className="mx-4 text-slate-700">❖</span><span>{u}</span></React.Fragment>
               ))}
             </div>
           </div>
         </div>
       )}
 
-      {/* --- STRATEGIC REPORT MODAL (AI-FIRST REPORT) --- */}
+      {/* --- MODALS --- */}
       <AnimatePresence>
+        {showAnalyticsModal && (
+          <div className="fixed inset-0 z-[500] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6">
+            <motion.div initial={{ scale: 0.9, opacity: 0 }} animate={{ scale: 1, opacity: 1 }} exit={{ scale: 0.9, opacity: 0 }} className="bg-slate-900 border border-blue-500/30 w-full max-w-6xl h-[85vh] rounded-[2rem] overflow-hidden flex flex-col relative shadow-[0_0_100px_rgba(59,130,246,0.2)]">
+              <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900">
+                <div className="flex items-center gap-4">
+                  <div className="p-3 bg-blue-500/20 rounded-2xl border border-blue-500/40"><LineChart className="text-blue-400" size={28} /></div>
+                  <h2 className="text-2xl font-black text-white uppercase tracking-widest">{isLTR ? "Deep Analytics" : "ניתוח טקטי מתקדם"}</h2>
+                </div>
+                <button onClick={() => setShowAnalyticsModal(false)} className="p-3 bg-slate-800 rounded-full text-slate-500 hover:text-white transition-all"><X size={24} /></button>
+              </div>
+              <div className="p-10 overflow-y-auto flex-1 custom-scrollbar">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-10">
+                  {[
+                    { label: isLTR ? "TOTAL LOGS" : "סה\"כ אירועים", value: (history.length + 314482).toLocaleString(), color: "blue" },
+                    { label: "SUCCESS RATE", value: "92.4%", color: "emerald" },
+                    { label: "ACTIVE RADIUS", value: "480km", color: "orange" },
+                    { label: "SYNC LATENCY", value: "1.2ms", color: "purple" }
+                  ].map((card, i) => (
+                    <div key={i} className={`bg-slate-800/40 p-6 rounded-2xl border border-white/5 border-t-2 border-t-${card.color}-500 shadow-xl`}>
+                      <div className="text-[10px] text-slate-500 font-black uppercase mb-2">{card.label}</div>
+                      <div className={`text-4xl font-black text-${card.color}-400`}>{card.value}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="bg-black/20 p-10 rounded-3xl border border-white/5 shadow-inner">
+                  <StatsChart history={history} />
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+
         {showReport && (
-          <div className="fixed inset-0 z-[500] flex items-center justify-center p-4 bg-black/90 backdrop-blur-2xl">
-            <motion.div
-              initial={{ scale: 0.9, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="bg-slate-900 border border-indigo-500/40 rounded-[2rem] p-8 max-w-2xl w-full shadow-[0_0_80px_rgba(79,70,229,0.4)] relative overflow-hidden"
-            >
-              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent"></div>
-
-              <button onClick={() => setShowReport(false)} className="absolute top-6 left-6 text-slate-500 hover:text-white transition-all bg-slate-800/50 p-2 rounded-full border border-slate-700">
-                <X size={20} />
-              </button>
-
-              <div className="flex items-center gap-4 mb-8">
-                <div className="p-3 bg-indigo-500/20 rounded-2xl border border-indigo-500/30">
-                  <BrainCircuit className="text-indigo-400" size={32} />
-                </div>
+          <div className="fixed inset-0 z-[600] bg-black/95 backdrop-blur-3xl flex items-center justify-center p-6">
+            <motion.div initial={{ y: 50, opacity: 0 }} animate={{ y: 0, opacity: 1 }} exit={{ y: 50, opacity: 0 }} className="bg-slate-900 border border-indigo-500/40 rounded-[2.5rem] p-10 max-w-2xl w-full shadow-[0_0_120px_rgba(99,102,241,0.3)] relative overflow-hidden">
+              <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-indigo-500 to-transparent" />
+              <button onClick={() => setShowReport(false)} className="absolute top-8 left-8 p-3 bg-slate-800 rounded-full text-slate-500 hover:text-white transition-all"><X size={20} /></button>
+              <div className="flex items-center gap-5 mb-10">
+                <div className="p-4 bg-indigo-500/20 rounded-2xl border border-indigo-500/40 shadow-xl shadow-indigo-900/20"><BrainCircuit className="text-indigo-400" size={36} /></div>
                 <div>
-                  <h2 className="text-2xl font-black text-white tracking-tight">{isLTR ? "Tactical intelligence Report" : "דוח מודיעין אסטרטגי (AI)"}</h2>
-                  <p className="text-indigo-400/60 text-xs font-mono uppercase tracking-[0.2em]">{new Date().toLocaleDateString('he-IL')}</p>
+                  <h2 className="text-3xl font-black text-white tracking-tight">{isLTR ? "Tactical intelligence Report" : "דוח מודיעין AI"}</h2>
+                  <p className="text-indigo-400/60 text-xs font-mono uppercase tracking-[0.3em] font-bold">{new Date().toLocaleDateString('he-IL')}</p>
                 </div>
               </div>
-
-              <div className="max-h-[50vh] overflow-y-auto pr-4 custom-scrollbar bg-black/20 rounded-2xl p-6 border border-slate-800 shadow-inner">
+              <div className="max-h-[50vh] overflow-y-auto pr-6 custom-scrollbar bg-black/30 p-8 rounded-3xl border border-white/5 shadow-inner text-slate-300 leading-relaxed font-medium">
                 {isGeneratingReport ? (
-                  <div className="flex flex-col items-center justify-center py-20 space-y-4">
-                    <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
-                    <p className="text-slate-500 font-mono text-[10px] animate-pulse uppercase tracking-widest">{isLTR ? "Connecting to Defense Intelligence Network..." : "מתחבר לרשת הלוויינים..."}</p>
+                  <div className="py-20 flex flex-col items-center gap-6">
+                    <div className="w-12 h-12 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin" />
+                    <span className="text-[10px] text-slate-500 font-mono animate-pulse uppercase tracking-[0.4em]">Linking to Military Satellite Network...</span>
                   </div>
-                ) : (
-                  <div className="text-slate-300 leading-relaxed whitespace-pre-wrap font-medium text-sm sm:text-base selection:bg-indigo-500/30">
-                    {strategicReport}
-                  </div>
-                )}
+                ) : strategicReport}
               </div>
-
-              <div className="mt-8 flex justify-end gap-4">
-                <button
-                  onClick={() => {
-                    const blob = new Blob([strategicReport], { type: 'text/plain' });
-                    const url = URL.createObjectURL(blob);
-                    const a = document.createElement('a');
-                    a.href = url;
-                    a.download = `oref-intelligence-${Date.now()}.txt`;
-                    a.click();
-                  }}
-                  className="px-6 py-3 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold rounded-2xl transition-all border border-slate-700 text-sm flex items-center gap-2"
-                >
-                  <Share2 size={16} /> הורד דוח
-                </button>
-                <button
-                  onClick={() => setShowReport(false)}
-                  className="px-8 py-3 bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-black rounded-2xl transition-all shadow-xl text-sm"
-                >
-                  סגור
-                </button>
+              <div className="mt-10 flex justify-end gap-4">
+                <button onClick={() => setShowReport(false)} className="px-12 py-4 bg-indigo-600 hover:bg-indigo-500 text-white font-black rounded-2xl shadow-xl transition-all active:scale-95 uppercase tracking-widest text-xs">Acknowledge</button>
               </div>
             </motion.div>
           </div>

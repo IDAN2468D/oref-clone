@@ -1,36 +1,68 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🛡️ Oref Tactical Clone - National Command Center
 
-## Getting Started
+A high-performance, real-time tactical dashboard for monitoring Israeli Home Front Command (Oref) alerts. Built with a **Cinematic/Imperial Design Language**, this application provides a robust, low-latency interface for emergency monitoring with integrated AI analytics.
 
-First, run the development server:
+![Command Center Preview](https://github.com/IDAN2468D/oref-clone/raw/master/public/og-image.png)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## 📡 Live Features
+
+- **🚀 Real-time Tactical Map (v2):** 
+  - Dynamic radar sweeps, SAT-GEO orbital tracking, and live kinetic impact simulation.
+  - Normalized city database for 100% geographic coverage accuracy.
+  - Interactive "Field Intel" for decentralized reporting.
+- **🧠 AI Strategic Analyst (Gemini Flash):**
+  - Integrated military-grade AI sitting on Google's LLM to analyze launch patterns.
+  - Automated SITREP (Situation Reports) based on cascading regional threats.
+- **📟 Advanced Command Mode:**
+  - Multi-quad view for professionals with glassmorphism UI.
+  - Dark Ops (Blackout) mode for low-light command environments.
+  - QR Command Relay for rapid mobile-desktop tactical sync.
+- **🕒 Historical Time Machine:**
+  - Replay past major kinetic events for drill simulations.
+  - Predictive modeling for target acquisition.
+- **🔊 Multi-Modal Alert System:**
+  - Dynamic Siren Audio (Bugle for Drones, Alarm for Rockets).
+  - Neural TTS (Text-to-Speech) for audible situational awareness.
+  - Real-time Push Notifications via Service Workers.
+
+## 🛠️ Technology Stack
+
+- **Framework:** Next.js (App Router) + TypeScript
+- **Styling:** Tailwind CSS v4 (Cinematic Glassmorphism)
+- **Database:** MongoDB (Alert Synchronization Engine)
+- **Mapping:** Leaflet.js (Tactical Vector Layers)
+- **AI Backend:** Google Generative AI (Gemini 2.5 Flash)
+- **Animations:** Framer Motion (Staggered UI entry)
+
+## 🚦 Getting Started
+
+### 1. Prerequisites
+- Node.js 20+
+- MongoDB Instance
+- Gemini API Key (Optional, for strategic insights)
+
+### 2. Installation
+```cmd
+git clone https://github.com/IDAN2468D/oref-clone.git
+cd oref-clone
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 3. Environment Config
+Create a `.env` file in the root:
+```env
+MONGODB_URI=your_mongodb_connection_string
+GEMINI_API_KEY=your_google_ai_key
+```
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 4. Launch Command Center
+```cmd
+npm run dev
+```
+Open [http://localhost:3000](http://localhost:3000)
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## 💂‍♂️ Mission Statement
+This project is designed to provide maximum situational awareness during complex kinetic events, ensuring data accessibility when seconds matter.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+*Developed by Antigravity AI for the AI-First Development BootCamp.*
