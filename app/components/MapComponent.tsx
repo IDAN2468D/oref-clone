@@ -211,54 +211,67 @@ const MapContent = memo(({ activeCities, isHeatmap = false, history = [], userCo
 
             {/* SONAR UI OVERLAY */}
             <div className="absolute inset-0 pointer-events-none z-[400] overflow-hidden sonar-glow">
+                {/* Tactical CRT Scanline */}
+                <div className="absolute inset-0 crt-overlay opacity-40" />
+                <div className="absolute top-0 left-0 w-full h-[15%] bg-gradient-to-b from-emerald-500/5 to-transparent animate-scanline pointer-events-none" />
+
                 {/* Background Grid */}
                 <div className="absolute inset-0 radar-grid-pattern opacity-20" />
 
                 {/* Concentric Sonar Rings */}
                 <div className="radar-ring w-[200px] h-[200px]" />
                 <div className="radar-ring w-[400px] h-[400px]" />
-                <div className="radar-ring w-[600px] h-[600px]" />
-                <div className="radar-ring w-[800px] h-[800px] border-dashed" />
+                <div className="radar-ring w-[600px] h-[600px] border-emerald-500/10" />
+                <div className="radar-ring w-[800px] h-[800px] border-dashed border-emerald-500/10" />
 
                 {/* Tactical Crosshairs */}
                 <div className="absolute inset-0">
                     <div className="absolute left-1/2 top-0 bottom-0 w-[1px] bg-emerald-500/20" />
                     <div className="absolute top-1/2 left-0 right-0 h-[1px] bg-emerald-500/20" />
 
-                    {/* Tick Marks */}
-                    <div className="absolute left-1/2 top-1/4 w-4 h-[1px] bg-emerald-500/40 -translate-x-1/2" />
-                    <div className="absolute left-1/2 top-3/4 w-4 h-[1px] bg-emerald-500/40 -translate-x-1/2" />
-                    <div className="absolute top-1/2 left-1/4 h-4 w-[1px] bg-emerald-500/40 -translate-y-1/2" />
-                    <div className="absolute top-1/2 left-3/4 h-4 w-[1px] bg-emerald-500/40 -translate-y-1/2" />
+                    {/* Tick Marks with Glow */}
+                    <div className="absolute left-1/2 top-1/4 w-8 h-[2px] bg-emerald-400/30 -translate-x-1/2 ring-1 ring-emerald-500/40" />
+                    <div className="absolute left-1/2 top-3/4 w-8 h-[2px] bg-emerald-400/30 -translate-x-1/2 ring-1 ring-emerald-500/40" />
+                    <div className="absolute top-1/2 left-1/4 h-8 w-[2px] bg-emerald-400/30 -translate-y-1/2 ring-1 ring-emerald-500/40" />
+                    <div className="absolute top-1/2 left-3/4 h-8 w-[2px] bg-emerald-400/30 -translate-y-1/2 ring-1 ring-emerald-500/40" />
                 </div>
 
-                {/* Sonar Sweep (Active scanning) */}
-                <div className="absolute top-1/2 left-1/2 w-[1000px] h-[1000px] -translate-x-1/2 -translate-y-1/2">
-                    <div className="absolute top-0 right-1/2 w-1/2 h-1/2 bg-[conic-gradient(from_0deg_at_100%_100%,rgba(16,185,129,0)_0deg,rgba(16,185,129,0.2)_60deg,rgba(16,185,129,0.4)_90deg)] animate-radar-sweep origin-bottom-right border-r-2 border-emerald-400/50 blur-[2px]" />
+                {/* Sonar Sweep */}
+                <div className="absolute top-1/2 left-1/2 w-[1200px] h-[1200px] -translate-x-1/2 -translate-y-1/2">
+                    <div className="absolute top-0 right-1/2 w-1/2 h-1/2 bg-[conic-gradient(from_0deg_at_100%_100%,rgba(16,185,129,0)_0deg,rgba(16,185,129,0.1)_60deg,rgba(16,185,129,0.3)_90deg)] animate-radar-sweep origin-bottom-right border-r-2 border-emerald-400/40 blur-[4px]" />
                 </div>
 
-                {/* TACTICAL HUD ELEMENTS (Corner Readouts) */}
-                <div className="absolute top-6 left-6 flex flex-col gap-1">
+                {/* TACTICAL HUD - TOP LEFT */}
+                <div className="absolute top-6 left-6 flex flex-col gap-1.5 glass-panel p-3 rounded-lg border-emerald-500/30 tactical-glow-green">
                     <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 bg-emerald-500 animate-pulse" />
-                        <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest font-mono">System Live</span>
+                        <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_8px_rgba(16,185,129,1)]" />
+                        <span className="text-[11px] font-black text-emerald-400 uppercase tracking-widest font-mono">Telemetry Active</span>
                     </div>
-                    <div className="text-[8px] text-emerald-500/60 font-mono">SCAN_FREQ: 2.4 GHz</div>
-                    <div className="text-[8px] text-emerald-500/60 font-mono">AZIMUTH: {(Math.random() * 360).toFixed(2)}°</div>
+                    <div className="h-[1px] w-full bg-emerald-500/20" />
+                    <div className="grid grid-cols-2 gap-x-4 text-[9px] text-emerald-500/70 font-mono">
+                        <span>FREQ:</span> <span className="text-emerald-300">2.48 GHz</span>
+                        <span>AZIM:</span> <span className="text-emerald-300">{(Math.random() * 360).toFixed(1)}°</span>
+                        <span>ELEV:</span> <span className="text-emerald-300">42,000 FT</span>
+                    </div>
                 </div>
 
-                <div className="absolute bottom-6 right-6 text-right font-mono">
-                    <div className="text-[10px] text-emerald-500 font-bold uppercase tracking-tighter">Target Acquisition: {activeCities.length > 0 ? 'LOCKED' : 'STANDBY'}</div>
-                    <div className="text-[8px] text-emerald-500/40 mt-1">LAT: 31.0461 | LNG: 34.8516</div>
+                {/* TACTICAL HUD - BOTTOM RIGHT */}
+                <div className="absolute bottom-6 right-6 text-right font-mono glass-panel p-3 rounded-lg border-emerald-500/30">
+                    <div className={`text-[10px] font-bold uppercase tracking-widest ${activeCities.length > 0 ? 'text-red-400' : 'text-emerald-400'}`}>
+                        {activeCities.length > 0 ? '⚠️ SECTOR LOCK: POSITIVE' : '📡 SCAN_STATUS: NOMINAL'}
+                    </div>
+                    <div className="text-[8px] text-white/40 mt-1 uppercase tracking-tighter">
+                        ISR_COORD: 31.046 / 34.851 | OP_VER: 4.2.0
+                    </div>
                 </div>
             </div>
 
             {/* THREAT HUD */}
             {threatDistance !== null && (
-                <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-950/90 border border-red-500/50 px-4 py-2 rounded-2xl backdrop-blur-xl z-[500] flex flex-col items-center shadow-2xl animate-pulse">
-                    <span className="text-[9px] text-red-300 font-black tracking-widest uppercase mb-1">Target Proximity</span>
-                    <div className="text-2xl font-black text-red-500 font-mono flex items-center gap-1.5">
-                        <div className="w-2 h-2 rounded-full bg-red-600 animate-ping mr-1"></div>
+                <div className="absolute top-6 left-1/2 -translate-x-1/2 bg-red-950/80 border border-red-500/50 px-6 py-3 rounded-2xl backdrop-blur-2xl z-[500] flex flex-col items-center shadow-2xl animate-pulse tactical-glow-red">
+                    <span className="text-[10px] text-red-300 font-bold tracking-[0.3em] uppercase mb-1">PROXIMITY LOCK</span>
+                    <div className="text-3xl font-black text-red-500 font-mono flex items-center gap-2">
+                        <div className="w-3 h-3 rounded-full bg-red-600 animate-ping mr-1"></div>
                         {threatDistance} <span className="text-xs">KM</span>
                     </div>
                 </div>

@@ -173,6 +173,56 @@ body {
   /* Slower for readability */
 }
 
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+
+  100% {
+    transform: translateY(100%);
+  }
+}
+
+.animate-scanline {
+  animation: scanline 8s linear infinite;
+}
+
+.tactical-glow-red {
+  filter: drop-shadow(0 0 8px rgba(239, 68, 68, 0.8));
+}
+
+.tactical-glow-green {
+  filter: drop-shadow(0 0 8px rgba(16, 185, 129, 0.8));
+}
+
+.holographic-ring {
+  border: 2px solid rgba(239, 68, 68, 0.4);
+  background: radial-gradient(circle, rgba(239, 68, 68, 0.2) 0%, transparent 70%);
+  animation: ring-pulse 2s ease-out infinite;
+}
+
+@keyframes ring-pulse {
+  0% {
+    transform: scale(0.8);
+    opacity: 0;
+  }
+
+  50% {
+    opacity: 0.5;
+  }
+
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+.crt-overlay {
+  background: linear-gradient(rgba(18, 16, 16, 0) 50%, rgba(0, 0, 0, 0.25) 50%), linear-gradient(90deg, rgba(255, 0, 0, 0.06), rgba(0, 255, 0, 0.02), rgba(0, 0, 255, 0.06));
+  background-size: 100% 2px, 3px 100%;
+  pointer-events: none;
+}
+
 .satellite-label {
   background: rgba(15, 23, 42, 0.9) !important;
   color: #38bdf8 !important;
