@@ -94,8 +94,8 @@ function OrbitalSatellites() {
     const radius = 1.2;
     const center: [number, number] = [31.5, 35.1];
     const satPos: [number, number] = [
-        center[0] + radius * Math.cos(angle * Math.PI / 180),
-        center[1] + radius * Math.sin(angle * Math.PI / 180)
+        center[0] + radius * Math.sin(angle * Math.PI / 180),
+        center[1] + radius * Math.cos(angle * Math.PI / 180)
     ];
 
     return (

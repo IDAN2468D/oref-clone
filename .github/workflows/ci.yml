@@ -32,7 +32,3 @@ jobs:
 
             - name: Build Production Artifact
               run: npm run build
-              env:
-                  NEXT_PUBLIC_TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-                  NEXT_PUBLIC_TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-                  GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}

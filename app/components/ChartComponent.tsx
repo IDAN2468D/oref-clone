@@ -10,7 +10,7 @@ interface AlertData {
     title?: string;
 }
 
-export default function ChartComponent({ history }: { history: AlertData[] }) {
+export default function ChartComponent({ history, isRTL = false }: { history: AlertData[], isRTL?: boolean }) {
     // Process history to group by hour in Israel time for the last 24 hours
     const chartData = useMemo(() => {
         const hours = new Array(24).fill(0).map((_, i) => {
@@ -62,6 +62,7 @@ export default function ChartComponent({ history }: { history: AlertData[] }) {
                             axisLine={false}
                             interval={3}
                             dy={10}
+                            reversed={isRTL}
                         />
                         <YAxis
                             stroke="#64748b"

@@ -602,6 +602,7 @@ export default function Home() {
       <AnimatePresence>
         {activeAlerts.length > 0 && !isBannerDismissed && (
           <motion.div
+            data-testid="active-alert-banner"
             initial={{ opacity: 0, y: -80, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, scale: 0.9, y: -40 }}
@@ -626,7 +627,7 @@ export default function Home() {
                   {isLTR ? "CODE RED" : "צבע אדום"}
                 </h2>
                 <div className="text-xl sm:text-2xl font-bold text-white/90 text-center mb-6 leading-tight max-w-2xl">
-                  {activeAlerts.join(' , ')}
+                  {activeAlerts.join(', ')}
                 </div>
                 {timeToCover !== null && (
                   <div className="bg-black/40 px-8 py-3 rounded-2xl border border-red-500/30">
@@ -688,7 +689,7 @@ export default function Home() {
                         <span className="text-[9px] font-mono text-slate-500 uppercase">{new Date(h.timestamp).toLocaleTimeString()}</span>
                         <div className="w-1.5 h-1.5 rounded-full bg-slate-600" />
                       </div>
-                      <div className="text-white text-xs font-bold">{Array.isArray(h.cities) ? h.cities.join(' , ') : h.cities}</div>
+                      <div className="text-white text-xs font-bold">{Array.isArray(h.cities) ? h.cities.join(', ') : h.cities}</div>
                     </div>
                   ))}
                 </div>
@@ -698,7 +699,7 @@ export default function Home() {
         ) : (
           /* --- STANDARD VIEW (REFINED) --- */
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 flex-1">
-            <aside className="lg:col-span-3 flex flex-col gap-6 order-3 lg:order-1">
+            <aside className="lg:col-span-3 flex flex-col gap-6 order-3 lg:order-2">
               <div className="glass-panel rounded-3xl p-6 bg-gradient-to-br from-slate-900 to-indigo-950/20 border-indigo-500/20 hidden lg:flex flex-col items-center gap-4 text-center">
                 <div className="p-3 bg-indigo-500/10 rounded-full text-indigo-400 animate-pulse"><Globe size={24} /></div>
                 <h3 className="text-white font-black text-xs uppercase tracking-widest">Command Relay QR</h3>
@@ -715,14 +716,14 @@ export default function Home() {
                   {history.map((h, i) => (
                     <div key={i} className={`bg-slate-800/40 rounded-xl p-4 border-r-4 ${activeAlerts.includes(Array.isArray(h.cities) ? h.cities[0] : (h.cities as string)) ? 'border-red-500 animate-pulse' : 'border-slate-700'}`}>
                       <div className="text-[10px] text-slate-500 mb-1 font-mono uppercase">{new Date(h.timestamp).toLocaleTimeString()}</div>
-                      <div className="text-slate-100 text-xs font-bold leading-tight line-clamp-2">{Array.isArray(h.cities) ? h.cities.join(' , ') : h.cities}</div>
+                      <div className="text-slate-100 text-xs font-bold leading-tight line-clamp-2">{Array.isArray(h.cities) ? h.cities.join(', ') : h.cities}</div>
                     </div>
                   ))}
                 </div>
               </div>
             </aside>
 
-            <section className="lg:col-span-9 flex flex-col gap-6 order-1 lg:order-2">
+            <section className="lg:col-span-9 flex flex-col gap-6 order-1 lg:order-1">
               <div className="bg-gradient-to-r from-blue-900/30 to-indigo-900/30 border border-indigo-500/30 rounded-2xl p-5 flex items-center gap-5 shadow-2xl">
                 <div className="p-3 bg-indigo-500/20 rounded-xl shadow-lg ring-1 ring-indigo-500/40"><BrainCircuit className="text-indigo-400 animate-pulse" size={28} /></div>
                 <div className="flex-1">
@@ -748,7 +749,7 @@ export default function Home() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mb-10">
                 <div className="lg:col-span-2 glass-panel rounded-3xl p-6 bg-slate-900/40 border border-white/5 shadow-xl">
                   <h3 className="text-white font-black text-xs uppercase tracking-widest mb-6 flex items-center gap-2"><Activity size={16} className="text-amber-500" /> Launch Intensity Analytics</h3>
-                  <div className="h-64 h-full"><StatsChart history={history} /></div>
+                  <div className="h-64 h-full"><StatsChart history={history} isRTL={!isLTR} /></div>
                 </div>
                 <div className="glass-panel rounded-3xl p-8 bg-slate-900/60 border border-white/5 flex flex-col items-center justify-center text-center shadow-2xl relative overflow-hidden group">
                   <div className="absolute -inset-1 bg-gradient-to-tr from-cyan-500/10 to-transparent blur-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
