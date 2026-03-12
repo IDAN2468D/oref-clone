@@ -10,7 +10,8 @@ export async function GET() {
 
     // 1. Try to fetch from Official Real-time API
     try {
-        const response = await fetch('https://www.oref.org.il/WarningMessages/alert/alerts.json', {
+        const apiUrl = process.env.ALERTS_API_URL || 'https://www.oref.org.il/WarningMessages/alert/alerts.json';
+        const response = await fetch(apiUrl, {
             headers: {
                 'X-Requested-With': 'XMLHttpRequest',
                 'Referer': 'https://www.oref.org.il/',
